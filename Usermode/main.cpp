@@ -4,24 +4,30 @@
 
 #define IOCTL_NUMBER 0xFADED
 
-struct WriteDataRequest_t {
-    DWORD m_pProcessId;
-    PVOID m_pAddress;
-    PVOID m_pBuffer;
-    SIZE_T m_nSize;
-};
-
-WriteDataRequest_t writeData;
-
 int da2{ 82 };
 int da{ 0 };
 
-// TYPE: 1 BYTE
-// ADDRESS: 4 BYTES
-// BUFFER: 4 BYTES
-// SIZE: 4 BYTES
+struct DataRequest_t {
+    char m_iType{ };
+    void* m_pAddress{ };
+    void* m_pBuffer{ };
+    int m_nSize{ };
+};
 
-char communicationBuffer[ 1 + 4 + 4 + 4 ];
+DataRequest_t communicationBuffer;
+
+struct CommsParse_t {
+    DWORD m_pProcessId;
+    DataRequest_t* m_pCommsBuffer;
+};
+CommsParse_t comms{ };
+
+void Write( void* address, void* buffer, int size ) {
+    communicationBuffer.m_iType = 1;
+    communicationBuffer.m_pAddress = address;
+    communicationBuffer.m_pBuffer = buffer;
+    communicationBuffer.m_nSize = size;
+}
 
 int main( void ) {
     HANDLE hDevice;
@@ -32,23 +38,25 @@ int main( void ) {
         return 1;
     }
 
-    DWORD bytesReturned;
-    writeData.m_pBuffer = &da2;
-    writeData.m_pAddress = &da;
-    writeData.m_nSize = 4;
-    writeData.m_pProcessId = GetCurrentProcessId( );
-
     std::cout << da << std::endl;
-    
-    if ( !DeviceIoControl( hDevice, IOCTL_NUMBER, &writeData, sizeof( WriteDataRequest_t ), NULL, 0, &bytesReturned, NULL ) ) {
-        printf( "Failed to send ioctl command: %d\n", GetLastError( ) );
+
+    DWORD bytesReturned;
+    comms.m_pProcessId = GetCurrentProcessId( );
+    comms.m_pCommsBuffer = &communicationBuffer;
+
+    if ( !DeviceIoControl( hDevice, IOCTL_NUMBER, &comms, sizeof( CommsParse_t ), NULL, 0, &bytesReturned, NULL ) ) {
+        printf( "Failed to send comms: %d\n", GetLastError( ) );
         CloseHandle( hDevice );
         return 1;
     }
 
-    std::cout << da << std::endl;
+    Write( &da, &da2, 4 );
 
-    Sleep( 1000 );
+    while ( true ) {
+        std::cout << da << std::endl;
+
+        Sleep( 1000 );
+    }
 
     CloseHandle( hDevice );
 

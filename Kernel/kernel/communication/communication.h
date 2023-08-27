@@ -1,9 +1,5 @@
 #pragma once
 #include <ntifs.h>
-// TYPE: 1 BYTE
-// ADDRESS: 4 BYTES
-// BUFFER: 4 BYTES
-// SIZE: 4 BYTES
 
 struct DataRequest_t {
     char m_iType{ };
@@ -12,16 +8,12 @@ struct DataRequest_t {
     int m_nSize{ };
 };
 
-struct WriteDataRequest_t {
-    int m_pProcessId;
-    PVOID m_pAddress;
-    PVOID m_pBuffer;
-    SIZE_T m_nSize;
+enum {
+    REQUEST_READ,
+    REQUEST_WRITE,
 };
 
 namespace Communication {
-	char* Communication;
-
-    int PID;
+    inline char* CommunicationBuffer;
+    inline PEPROCESS Process;
 }
-
