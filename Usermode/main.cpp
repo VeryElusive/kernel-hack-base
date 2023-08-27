@@ -1,6 +1,8 @@
 #include <windows.h>
 #include <stdio.h>
 #include <iostream>
+#include <mutex>
+#include <condition_variable>
 
 #define IOCTL_NUMBER 0xFADED
 
@@ -22,11 +24,17 @@ struct CommsParse_t {
 };
 CommsParse_t comms{ };
 
+std::mutex mtx;
+std::condition_variable cv;
+
 void Write( void* address, void* buffer, int size ) {
     communicationBuffer.m_iType = 1;
     communicationBuffer.m_pAddress = address;
     communicationBuffer.m_pBuffer = buffer;
     communicationBuffer.m_nSize = size;
+
+    std::unique_lock<std::mutex> lock( mtx );
+    cv.wait( lock, [ & ] { return communicationBuffer.m_iType == 1; } );
 }
 
 int main( void ) {

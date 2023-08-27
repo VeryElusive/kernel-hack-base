@@ -79,7 +79,7 @@ VOID DriverUnload( PDRIVER_OBJECT DriverObject ) {
 VOID ThreadFunction( PVOID StartContext ) {
     //size_t bytes{ };
     while ( !unload ) {
-        if ( !Communication::CommunicationBuffer || !Communication::Process ) {
+        if ( !Communication::CommunicationBuffer || !Communication::ControlProcess || !Communication::GameProcess ) {
             if ( start )
                 DEBUG_PRINT( "[ HAVOC ] Comm buffer not initialised\n" );
             continue;
@@ -107,12 +107,11 @@ VOID ThreadFunction( PVOID StartContext ) {
             }*/
 
             Memory::Write( req.m_pAddress, buf, req.m_nSize );
+            req.m_iType = 0;
+            Memory::Write( Communication::CommunicationBuffer, &req, sizeof( DataRequest_t ) );
 
             //MmCopyVirtualMemory( IoGetCurrentProcess( ), buf, Communication::Process, req.m_pAddress, req.m_nSize, KernelMode, &bytes );
             break;
-
-            //req.m_iType = 0;
-            //Memory::Write( Communication::CommunicationBuffer, &req, sizeof( DataRequest_t ) );
         }
     }
 }

@@ -15,5 +15,6 @@ enum {
 
 namespace Communication {
     inline char* CommunicationBuffer;
-    inline PEPROCESS Process;
+    inline PEPROCESS ControlProcess;
+    inline PEPROCESS GameProcess;
 }
