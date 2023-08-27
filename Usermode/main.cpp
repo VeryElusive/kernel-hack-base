@@ -1,41 +1,11 @@
 #include <windows.h>
 #include <stdio.h>
 #include <iostream>
-#include <mutex>
-#include <condition_variable>
+#include "utils/memory.h"
 
-#define IOCTL_NUMBER 0xFADED
 
 int da2{ 82 };
 int da{ 0 };
-
-struct DataRequest_t {
-    char m_iType{ };
-    void* m_pAddress{ };
-    void* m_pBuffer{ };
-    int m_nSize{ };
-};
-
-DataRequest_t communicationBuffer;
-
-struct CommsParse_t {
-    DWORD m_pProcessId;
-    DataRequest_t* m_pBuffer;
-};
-CommsParse_t comms{ };
-
-std::mutex mtx;
-std::condition_variable cv;
-
-void Write( void* address, void* buffer, int size ) {
-    communicationBuffer.m_iType = 1;
-    communicationBuffer.m_pAddress = address;
-    communicationBuffer.m_pBuffer = buffer;
-    communicationBuffer.m_nSize = size;
-
-    std::unique_lock<std::mutex> lock( mtx );
-    cv.wait( lock, [ & ] { return communicationBuffer.m_iType == 1; } );
-}
 
 int main( void ) {
     HANDLE hDevice;
@@ -49,23 +19,21 @@ int main( void ) {
     std::cout << "PRE: " << da << std::endl;
 
     DWORD bytesReturned;
-    comms.m_pProcessId = GetCurrentProcessId( );
+    Context::Comms.m_pProcessId = GetCurrentProcessId( );
     //comms.m_pGameProcessId = comms.m_pControlProcessId; // TODO: WHY DOES THIS FAIL?!??!
-    comms.m_pBuffer = &communicationBuffer;
+    Context::Comms.m_pBuffer = &Context::CommunicationBuffer;
 
-    if ( !DeviceIoControl( hDevice, IOCTL_NUMBER, &comms, sizeof( CommsParse_t ), NULL, 0, &bytesReturned, NULL ) ) {
+    if ( !DeviceIoControl( hDevice, IOCTL_NUMBER, &Context::Comms, sizeof( CommsParse_t ), NULL, 0, &bytesReturned, NULL ) ) {
         printf( "Failed to send comms: %d\n", GetLastError( ) );
         CloseHandle( hDevice );
         return 1;
     }
 
-    Write( &da, &da2, 4 );
+    Memory::Write( &da, &da2, 4 );
 
-    while ( true ) {
-        std::cout << "POST: " << da << std::endl;
+    std::cout << "POST: " << da << std::endl;
 
-        Sleep( 1000 );
-    }
+    Sleep( 10000 );
 
     CloseHandle( hDevice );
 

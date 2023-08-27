@@ -6,11 +6,7 @@
 #include <ntifs.h>
 
 #include "sdk/windows/ntapi.h"
-
-struct CommsParse_t {
-    PVOID m_pProcessId;
-    char* m_pBuffer;
-};
+#include "../../shared_structs.h"
 
 bool unload;
 bool loaded{ };
@@ -27,9 +23,9 @@ NTSTATUS DeviceControl( PDEVICE_OBJECT DeviceObject, PIRP Irp ) {
     switch ( irpSp->Parameters.DeviceIoControl.IoControlCode ) {
     case IOCTL_NUMBER:
         DEBUG_PRINT( "[ HAVOC ] Received comms\n" );
-        Communication::CommunicationBuffer = comms->m_pBuffer;
+        Communication::CommunicationBuffer = reinterpret_cast< char* >( comms->m_pBuffer );
 
-        status = PsLookupProcessByProcessId( comms->m_pProcessId, &Communication::ControlProcess );
+        status = PsLookupProcessByProcessId( reinterpret_cast< HANDLE* >( comms->m_pProcessId ), &Communication::ControlProcess );
 
         if ( !NT_SUCCESS( status ) ) {
             DEBUG_PRINT( "[ HAVOC ] Failed to find process\n" );
@@ -115,7 +111,6 @@ VOID ThreadFunction( PVOID StartContext ) {
             //MmCopyVirtualMemory( IoGetCurrentProcess( ), &req, Communication::ControlProcess, Communication::CommunicationBuffer, sizeof( DataRequest_t ), KernelMode, &bytes );
 
             DEBUG_PRINT( "[ HAVOC ] wrote to buffer\n" );
-            //break;
         }
     }
 }
