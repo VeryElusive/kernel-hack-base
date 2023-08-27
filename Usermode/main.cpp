@@ -20,7 +20,7 @@ DataRequest_t communicationBuffer;
 
 struct CommsParse_t {
     DWORD m_pProcessId;
-    DataRequest_t* m_pCommsBuffer;
+    DataRequest_t* m_pBuffer;
 };
 CommsParse_t comms{ };
 
@@ -46,11 +46,12 @@ int main( void ) {
         return 1;
     }
 
-    std::cout << da << std::endl;
+    std::cout << "PRE: " << da << std::endl;
 
     DWORD bytesReturned;
     comms.m_pProcessId = GetCurrentProcessId( );
-    comms.m_pCommsBuffer = &communicationBuffer;
+    //comms.m_pGameProcessId = comms.m_pControlProcessId; // TODO: WHY DOES THIS FAIL?!??!
+    comms.m_pBuffer = &communicationBuffer;
 
     if ( !DeviceIoControl( hDevice, IOCTL_NUMBER, &comms, sizeof( CommsParse_t ), NULL, 0, &bytesReturned, NULL ) ) {
         printf( "Failed to send comms: %d\n", GetLastError( ) );
@@ -61,7 +62,7 @@ int main( void ) {
     Write( &da, &da2, 4 );
 
     while ( true ) {
-        std::cout << da << std::endl;
+        std::cout << "POST: " << da << std::endl;
 
         Sleep( 1000 );
     }

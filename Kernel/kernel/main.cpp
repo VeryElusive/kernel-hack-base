@@ -13,7 +13,7 @@ struct CommsParse_t {
 };
 
 bool unload;
-bool start{ };
+bool loaded{ };
 
 #define IOCTL_NUMBER 0xFADED
 
@@ -29,13 +29,16 @@ NTSTATUS DeviceControl( PDEVICE_OBJECT DeviceObject, PIRP Irp ) {
         DEBUG_PRINT( "[ HAVOC ] Received comms\n" );
         Communication::CommunicationBuffer = comms->m_pBuffer;
 
-        status = PsLookupProcessByProcessId( comms->m_pProcessId, &Communication::Process );
-        start = true;
+        status = PsLookupProcessByProcessId( comms->m_pProcessId, &Communication::ControlProcess );
 
         if ( !NT_SUCCESS( status ) ) {
             DEBUG_PRINT( "[ HAVOC ] Failed to find process\n" );
             break;
         }
+
+        Communication::GameProcess = Communication::ControlProcess;
+
+        loaded = true;
 
         DEBUG_PRINT( "[ HAVOC ] Successfully parsed comms\n" );
 
@@ -79,9 +82,11 @@ VOID DriverUnload( PDRIVER_OBJECT DriverObject ) {
 VOID ThreadFunction( PVOID StartContext ) {
     //size_t bytes{ };
     while ( !unload ) {
+        if ( !loaded )
+            continue;
+
         if ( !Communication::CommunicationBuffer || !Communication::ControlProcess || !Communication::GameProcess ) {
-            if ( start )
-                DEBUG_PRINT( "[ HAVOC ] Comm buffer not initialised\n" );
+            //DEBUG_PRINT( "[ HAVOC ] Comm buffer not initialised\n" );
             continue;
         }
 
@@ -92,26 +97,25 @@ VOID ThreadFunction( PVOID StartContext ) {
         }
 
         if ( req.m_iType && req.m_pBuffer && req.m_nSize ) {
-            DEBUG_PRINT( "[ HAVOC ] found type!\n" );
-            // Memory::Write( req.m_pAddress, req.m_pBuffer, req.m_nSize );
-
             char buf[ 4 ];
+            //MmCopyVirtualMemory( Communication::ControlProcess, req.m_pBuffer, IoGetCurrentProcess( ), buf, req.m_nSize, KernelMode, &bytes );
             Memory::Read( req.m_pBuffer, buf, req.m_nSize );
 
-            /*switch ( req.m_iType ) {
+            switch ( req.m_iType ) {
             case REQUEST_READ:
-                Memory::Read( req.m_pAddress, req.m_pBuffer, req.m_nSize );
+                Memory::Read( req.m_pAddress, buf, req.m_nSize );
                 break;
             case REQUEST_WRITE:
+                Memory::Write( req.m_pAddress, buf, req.m_nSize );
                 break;
-            }*/
+            }
 
-            Memory::Write( req.m_pAddress, buf, req.m_nSize );
             req.m_iType = 0;
             Memory::Write( Communication::CommunicationBuffer, &req, sizeof( DataRequest_t ) );
+            //MmCopyVirtualMemory( IoGetCurrentProcess( ), &req, Communication::ControlProcess, Communication::CommunicationBuffer, sizeof( DataRequest_t ), KernelMode, &bytes );
 
-            //MmCopyVirtualMemory( IoGetCurrentProcess( ), buf, Communication::Process, req.m_pAddress, req.m_nSize, KernelMode, &bytes );
-            break;
+            DEBUG_PRINT( "[ HAVOC ] wrote to buffer\n" );
+            //break;
         }
     }
 }
