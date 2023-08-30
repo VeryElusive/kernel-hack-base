@@ -3,7 +3,6 @@
 
 namespace Communication {
     inline char* CommunicationBuffer;
-    inline PEPROCESS ControlProcess;
-    inline PEPROCESS GameProcess;
-    inline HANDLE PID;
+    inline HANDLE GamePID;
+    inline HANDLE ClientPID;
 }

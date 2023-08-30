@@ -12,6 +12,7 @@ bool loaded{ };
 
 #define IOCTL_NUMBER 0xFADED
 #define DEBUG_PRINT( msg, ... ) DbgPrintEx( 0, 0, msg, __VA_ARGS__ );
+//#define DEBUG_PRINT( msg, ... ) ;
 
 NTSTATUS DeviceControl( PDEVICE_OBJECT DeviceObject, PIRP Irp ) {
     NTSTATUS status{ STATUS_SUCCESS };
@@ -23,7 +24,8 @@ NTSTATUS DeviceControl( PDEVICE_OBJECT DeviceObject, PIRP Irp ) {
     case IOCTL_NUMBER:
         DEBUG_PRINT( "[ HAVOC ] Received comms\n" );
         Communication::CommunicationBuffer = reinterpret_cast< char* >( comms->m_pBuffer );
-        Communication::PID = reinterpret_cast< HANDLE >( comms->m_pProcessId );
+        Communication::GamePID = reinterpret_cast< HANDLE >( comms->m_pGameProcessId );
+        Communication::ClientPID = reinterpret_cast< HANDLE >( comms->m_pClientProcessId );
 
         loaded = true;
 
@@ -78,7 +80,7 @@ VOID WorkerThread( PVOID StartContext ) {
 
         DataRequest_t req{ };
         SIZE_T read;
-        if ( Memory::ReadProcessMemory( Communication::PID, Communication::CommunicationBuffer, &req, sizeof( DataRequest_t ), &read ) != STATUS_SUCCESS )
+        if ( Memory::ReadProcessMemory( Communication::ClientPID, Communication::CommunicationBuffer, &req, sizeof( DataRequest_t ), &read ) != STATUS_SUCCESS )
             continue;
 
         if ( req.m_iType && req.m_pBuffer && req.m_nSize ) {
@@ -88,19 +90,20 @@ VOID WorkerThread( PVOID StartContext ) {
 
             switch ( req.m_iType ) {
             case REQUEST_READ:
-                Memory::ReadProcessMemory( Communication::PID, req.m_pAddress, buf, req.m_nSize, &read );
-                Memory::WriteProcessMemory( Communication::PID, req.m_pBuffer, buf, req.m_nSize, &read );
+                Memory::ReadProcessMemory( Communication::GamePID, req.m_pAddress, buf, req.m_nSize, &read );
+                Memory::WriteProcessMemory( Communication::ClientPID, req.m_pBuffer, buf, req.m_nSize, &read );
                 break;
             case REQUEST_WRITE:
-                Memory::ReadProcessMemory( Communication::PID, req.m_pBuffer, buf, req.m_nSize, &read );
-                Memory::WriteProcessMemory( Communication::PID, req.m_pAddress, buf, req.m_nSize, &read );
+                // TODO: is this correct?
+                Memory::ReadProcessMemory( Communication::ClientPID, req.m_pBuffer, buf, req.m_nSize, &read );
+                Memory::WriteProcessMemory( Communication::GamePID, req.m_pAddress, buf, req.m_nSize, &read );
                 break;
             }
 
             ExFreePool( buf );
 
             req.m_iType = 0;
-            Memory::WriteProcessMemory( Communication::PID, Communication::CommunicationBuffer, &req, sizeof( DataRequest_t ), &read );
+            Memory::WriteProcessMemory( Communication::ClientPID, Communication::CommunicationBuffer, &req, sizeof( DataRequest_t ), &read );
 
             DEBUG_PRINT( "[ HAVOC ] wrote to buffer\n" );
         }

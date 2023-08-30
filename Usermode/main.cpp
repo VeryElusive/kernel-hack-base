@@ -15,26 +15,22 @@ int main( void ) {
         return 1;
     }
 
-    std::cout << "PRE: " << da << std::endl;
-
-    DWORD bytesReturned;
-    Context::Comms.m_pProcessId = GetCurrentProcessId( );
-    //comms.m_pGameProcessId = comms.m_pControlProcessId; // TODO: WHY DOES THIS FAIL?!??!
+    Context::Comms.m_pGameProcessId = GetCurrentProcessId( );
+    Context::Comms.m_pClientProcessId = GetCurrentProcessId( );
     Context::Comms.m_pBuffer = &Context::CommunicationBuffer;
 
-    if ( !DeviceIoControl( hDevice, IOCTL_NUMBER, &Context::Comms, sizeof( CommsParse_t ), NULL, 0, &bytesReturned, NULL ) ) {
+    if ( !DeviceIoControl( hDevice, IOCTL_NUMBER, &Context::Comms, sizeof( CommsParse_t ), NULL, NULL, NULL, NULL ) ) {
         printf( "Failed to send comms: %d\n", GetLastError( ) );
         CloseHandle( hDevice );
         return 1;
     }
 
-    Memory::Write( &da, &da2, 4 );
+    CloseHandle( hDevice );
 
+    std::cout << "PRE: " << da << std::endl;
+    Memory::Write( &da, &da2, 4 );
     std::cout << "POST: " << da << std::endl;
 
     Sleep( 10000 );
-
-    CloseHandle( hDevice );
-
     return 0;
 }

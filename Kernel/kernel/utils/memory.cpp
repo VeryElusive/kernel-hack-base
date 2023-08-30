@@ -2,6 +2,12 @@
 
 
 namespace Memory {
+	__forceinline void memcpyINLINED( unsigned char* dest, const unsigned char* src, size_t size ) {
+		for ( size_t i = 0; i < size; ++i ) {
+			dest[ i ] = src[ i ];
+		}
+	}
+
 	PVOID GetProcessBaseAddress( HANDLE pid ) {
 		PEPROCESS pProcess = NULL;
 		if ( pid == 0 )
@@ -102,7 +108,7 @@ namespace Memory {
 		if ( !pmapped_mem )
 			return STATUS_UNSUCCESSFUL;
 
-		memcpy( pmapped_mem, lpBuffer, Size );
+		memcpyINLINED( ( unsigned char* ) pmapped_mem, ( unsigned char* ) lpBuffer, Size );
 
 		*BytesWritten = Size;
 		MmUnmapIoSpace( pmapped_mem, Size );
