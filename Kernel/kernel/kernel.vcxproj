@@ -93,7 +93,12 @@
     </DriverSign>
     <Link>
       <AdditionalOptions>/INTEGRITYCHECK %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalLibraryDirectories>ntoskrnl.lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>%(AdditionalDependencies);ntoskrnl.lib</AdditionalDependencies>
     </Link>
+    <ClCompile>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <DriverSign>
@@ -101,13 +106,15 @@
     </DriverSign>
     <Link>
       <AdditionalOptions>/INTEGRITYCHECK %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalDependencies>ntoskrnl.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>%(AdditionalDependencies);ntoskrnl.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>ntoskrnl.lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <ClCompile>
       <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <ClCompile>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
@@ -129,13 +136,14 @@
   <ItemGroup>
     <ClCompile Include="communication\communication.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="utils\memory.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="communication\communication.h" />
     <ClInclude Include="sdk\windows\ntapi.h" />
     <ClInclude Include="sdk\windows\ntstructs.h" />
     <ClInclude Include="utils\memory.h" />
-    <ClInclude Include="utils\messages.h" />
+    <ClInclude Include="utils\utils.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

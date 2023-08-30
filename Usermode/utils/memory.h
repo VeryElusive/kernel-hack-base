@@ -8,7 +8,10 @@ namespace Memory {
         Context::CommunicationBuffer.m_pBuffer = buffer;
         Context::CommunicationBuffer.m_nSize = size;
 
+        std::cout << ( Context::CommunicationBuffer.m_iType ) << std::endl;
         std::unique_lock<std::mutex> lock( Context::mtx );
-        Context::cv.wait( lock, [ & ] { return Context::CommunicationBuffer.m_iType == 1; } );
+        Context::cv.wait( lock, [ & ] { return Context::CommunicationBuffer.m_iType != REQUEST_WRITE; } );
+
+        std::cout << ( Context::CommunicationBuffer.m_iType ) << std::endl;
     }
 }

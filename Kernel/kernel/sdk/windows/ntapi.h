@@ -40,3 +40,10 @@ MmCopyVirtualMemory(
 	_In_ KPROCESSOR_MODE PreviousMode,
 	_Out_ PSIZE_T NumberOfBytesCopied
 );
+
+extern "C"
+NTKERNELAPI
+PVOID
+PsGetProcessSectionBaseAddress(
+	__in PEPROCESS Process
+);
