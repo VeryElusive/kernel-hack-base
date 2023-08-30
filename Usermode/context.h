@@ -6,7 +6,4 @@
 namespace Context {
 	inline DataRequest_t CommunicationBuffer;
 	inline CommsParse_t Comms{ };
-
-	inline std::mutex mtx;
-	inline std::condition_variable cv;
 }

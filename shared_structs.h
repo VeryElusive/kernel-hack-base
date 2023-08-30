@@ -1,6 +1,6 @@
 
 struct DataRequest_t {
-    int m_iType{ };
+    volatile int m_iType{ };
     void* m_pAddress{ };
     void* m_pBuffer{ };
     int m_nSize{ };

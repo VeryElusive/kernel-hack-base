@@ -19,7 +19,7 @@ int main( void ) {
     Context::Comms.m_pClientProcessId = GetCurrentProcessId( );
     Context::Comms.m_pBuffer = &Context::CommunicationBuffer;
 
-    if ( !DeviceIoControl( hDevice, IOCTL_NUMBER, &Context::Comms, sizeof( CommsParse_t ), NULL, NULL, NULL, NULL ) ) {
+    if ( !DeviceIoControl( hDevice, IOCTL_NUMBER, &Context::Comms, sizeof( CommsParse_t ), NULL, 0, NULL, NULL ) ) {
         printf( "Failed to send comms: %d\n", GetLastError( ) );
         CloseHandle( hDevice );
         return 1;

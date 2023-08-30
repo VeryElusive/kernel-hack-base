@@ -108,6 +108,8 @@ namespace Memory {
 		if ( !pmapped_mem )
 			return STATUS_UNSUCCESSFUL;
 
+		//memcpy( pmapped_mem, lpBuffer, Size );
+
 		memcpyINLINED( ( unsigned char* ) pmapped_mem, ( unsigned char* ) lpBuffer, Size );
 
 		*BytesWritten = Size;
