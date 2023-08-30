@@ -66,8 +66,7 @@ VOID DriverUnload( PDRIVER_OBJECT DriverObject ) {
 }
 
 
-VOID ThreadFunction( PVOID StartContext ) {
-    //size_t bytes{ };
+VOID WorkerThread( PVOID StartContext ) {
     while ( !unload ) {
         if ( !loaded )
             continue;
@@ -83,19 +82,22 @@ VOID ThreadFunction( PVOID StartContext ) {
             continue;
 
         if ( req.m_iType && req.m_pBuffer && req.m_nSize ) {
-            char buf[ 4 ];
+            const auto buf{ ( char* ) ExAllocatePool2( POOL_FLAG_NON_PAGED, req.m_nSize, 'HVC' ) };
+            if ( !buf )
+                continue;
 
             switch ( req.m_iType ) {
             case REQUEST_READ:
-                Memory::ReadProcessMemory( Communication::PID, req.m_pAddress, buf, 4, &read );
+                Memory::ReadProcessMemory( Communication::PID, req.m_pAddress, buf, req.m_nSize, &read );
                 Memory::WriteProcessMemory( Communication::PID, req.m_pBuffer, buf, req.m_nSize, &read );
                 break;
             case REQUEST_WRITE:
-                Memory::ReadProcessMemory( Communication::PID, req.m_pBuffer, buf, 4, &read );
+                Memory::ReadProcessMemory( Communication::PID, req.m_pBuffer, buf, req.m_nSize, &read );
                 Memory::WriteProcessMemory( Communication::PID, req.m_pAddress, buf, req.m_nSize, &read );
                 break;
             }
 
+            ExFreePool( buf );
 
             req.m_iType = 0;
             Memory::WriteProcessMemory( Communication::PID, Communication::CommunicationBuffer, &req, sizeof( DataRequest_t ), &read );
@@ -135,7 +137,7 @@ extern "C" NTSTATUS DriverEntry( PDRIVER_OBJECT DriverObject, PUNICODE_STRING Re
     DriverObject->MajorFunction[ IRP_MJ_DEVICE_CONTROL ] = DeviceControl;
     DriverObject->DriverUnload = DriverUnload;
 
-    status = PsCreateSystemThread( &hThread, THREAD_ALL_ACCESS, NULL, NULL, NULL, ThreadFunction, NULL );
+    status = PsCreateSystemThread( &hThread, THREAD_ALL_ACCESS, NULL, NULL, NULL, WorkerThread, NULL );
     if ( NT_SUCCESS( status ) )
         ZwClose( hThread );
 
