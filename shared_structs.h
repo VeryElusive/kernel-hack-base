@@ -14,6 +14,7 @@ enum {
 struct CommsParse_t {
     int m_pClientProcessId;
     int m_pGameProcessId;
+    int m_iSignage;
     DataRequest_t* m_pBuffer;
 };
 

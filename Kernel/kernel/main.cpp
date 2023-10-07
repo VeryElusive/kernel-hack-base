@@ -1,148 +1,99 @@
 #pragma warning ( disable : 4100 )
 
 #include "utils/memory.h"
+#include "utils/hook.h"
+#include "utils/utils.h"
 #include "communication/communication.h"
-#include <ntifs.h>
 
-#include "sdk/windows/ntapi.h"
 #include "../../shared_structs.h"
 
-bool unload;
-bool loaded{ };
+INT64( NTAPI* EnumerateDebuggingDevicesOriginal )( PVOID, PVOID );
+DWORD64 gFunc{};
 
-#define IOCTL_NUMBER 0xFADED
 #define DEBUG_PRINT( msg, ... ) DbgPrintEx( 0, 0, msg, __VA_ARGS__ );
-//#define DEBUG_PRINT( msg, ... ) ;
 
-NTSTATUS DeviceControl( PDEVICE_OBJECT DeviceObject, PIRP Irp ) {
-    NTSTATUS status{ STATUS_SUCCESS };
+// this one function can exist solely on the stack. i can safely remove entire driver EXCEPT for this function.
+VOID WorkerThread( char* CommunicationBuffer, int GamePID, int ClientPID ) {
+    if ( !CommunicationBuffer || !GamePID || !ClientPID )
+        return;
 
-    const auto irpSp{ IoGetCurrentIrpStackLocation( Irp ) };
-    const auto comms{ ( CommsParse_t* ) Irp->AssociatedIrp.SystemBuffer };
+    // this is inside hook, now we unhook, unload driver, etc
 
-    switch ( irpSp->Parameters.DeviceIoControl.IoControlCode ) {
-    case IOCTL_NUMBER:
-        DEBUG_PRINT( "[ HAVOC ] Received comms\n" );
-        Communication::CommunicationBuffer = reinterpret_cast< char* >( comms->m_pBuffer );
-        Communication::GamePID = reinterpret_cast< HANDLE >( comms->m_pGameProcessId );
-        Communication::ClientPID = reinterpret_cast< HANDLE >( comms->m_pClientProcessId );
-
-        loaded = true;
-
-        DEBUG_PRINT( "[ HAVOC ] Successfully parsed comms\n" );
-
-        break;
-    default:
-        status = STATUS_INVALID_DEVICE_REQUEST;
-        break;
-    }
-
-    Irp->IoStatus.Status = status;
-    Irp->IoStatus.Information = 0;
-    IoCompleteRequest( Irp, IO_NO_INCREMENT );
-
-    return status;
-}
-
-NTSTATUS CreateClose( PDEVICE_OBJECT DeviceObject, PIRP Irp ) {
-    Irp->IoStatus.Status = STATUS_SUCCESS;
-    Irp->IoStatus.Information = 0;
-    IoCompleteRequest( Irp, IO_NO_INCREMENT );
-
-    return STATUS_SUCCESS;
-}
-
-HANDLE hThread;
-
-VOID DriverUnload( PDRIVER_OBJECT DriverObject ) {
-    UNICODE_STRING dosDeviceName;
-
-    RtlInitUnicodeString( &dosDeviceName, L"\\DosDevices\\Havoc" );
-    IoDeleteSymbolicLink( &dosDeviceName );
-    IoDeleteDevice( DriverObject->DeviceObject );
-
-    unload = true;
-    ZwClose( hThread );
-
-    DEBUG_PRINT( "[ HAVOC ] Unloaded driver\n" );
-}
-
-
-VOID WorkerThread( PVOID StartContext ) {
-    while ( !unload ) {
-        if ( !loaded )
-            continue;
-
-        if ( !Communication::CommunicationBuffer ) {
-            //DEBUG_PRINT( "[ HAVOC ] Comm buffer not initialised\n" );
-            continue;
-        }
-
+    while ( true ) {
         DataRequest_t req{ };
         SIZE_T read;
-        if ( Memory::ReadProcessMemory( Communication::ClientPID, Communication::CommunicationBuffer, &req, sizeof( DataRequest_t ), &read ) != STATUS_SUCCESS )
+        if ( Memory::ReadProcessMemory( ( HANDLE ) ClientPID, CommunicationBuffer, &req, sizeof( DataRequest_t ), &read ) != STATUS_SUCCESS )
             continue;
 
         if ( req.m_iType && req.m_pBuffer && req.m_nSize ) {
-            const auto buf{ ( char* ) ExAllocatePool2( POOL_FLAG_NON_PAGED, req.m_nSize, 'HVC' ) };
-            if ( !buf )
-                continue;
+            char buf[ 16 ]{ };
 
             switch ( req.m_iType ) {
             case REQUEST_READ:
-                Memory::ReadProcessMemory( Communication::GamePID, req.m_pAddress, buf, req.m_nSize, &read );
-                Memory::WriteProcessMemory( Communication::ClientPID, req.m_pBuffer, buf, req.m_nSize, &read );
+                Memory::ReadProcessMemory( ( HANDLE ) GamePID, req.m_pAddress, buf, req.m_nSize, &read );
+                Memory::WriteProcessMemory( ( HANDLE ) ClientPID, req.m_pBuffer, buf, req.m_nSize, &read );
                 break;
             case REQUEST_WRITE:
-                // TODO: is this correct?
-                Memory::ReadProcessMemory( Communication::ClientPID, req.m_pBuffer, buf, req.m_nSize, &read );
-                Memory::WriteProcessMemory( Communication::GamePID, req.m_pAddress, buf, req.m_nSize, &read );
+                Memory::ReadProcessMemory( ( HANDLE ) ClientPID, req.m_pBuffer, buf, req.m_nSize, &read );
+                Memory::WriteProcessMemory( ( HANDLE ) GamePID, req.m_pAddress, buf, req.m_nSize, &read );
                 break;
             }
 
-            ExFreePool( buf );
-
             req.m_iType = 0;
-            Memory::WriteProcessMemory( Communication::ClientPID, Communication::CommunicationBuffer, &req, sizeof( DataRequest_t ), &read );
+            Memory::WriteProcessMemory( ( HANDLE ) ClientPID, CommunicationBuffer, &req, sizeof( DataRequest_t ), &read );
 
-            DEBUG_PRINT( "[ HAVOC ] wrote to buffer\n" );
+            //DEBUG_PRINT( "[ HAVOC ] wrote to buffer\n" );
         }
     }
 }
 
-extern "C" NTSTATUS DriverEntry( PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath ) {
-    NTSTATUS status;
-    UNICODE_STRING deviceName;
-    UNICODE_STRING dosDeviceName;
-    PDEVICE_OBJECT deviceObject;
+#define RVA(addr, size) (const char*)addr + *(INT*)((BYTE*)addr + ((size) - 4)) + size
 
-    RtlInitUnicodeString( &deviceName, L"\\Device\\Havoc" );
-    status = IoCreateDevice( DriverObject, 0, &deviceName, FILE_DEVICE_UNKNOWN, 0, FALSE, &deviceObject );
-    if ( !NT_SUCCESS( status ) ) {
-        DEBUG_PRINT( "[ HAVOC ] Failed to create device\n" );
-        return status;
+INT64 NTAPI EnumerateDebuggingDevicesHook( CommsParse_t* a1, PINT64 a2 ) {
+    DEBUG_PRINT( "[ HAVOC ] detour called!\n" );
+    if ( ExGetPreviousMode( ) != UserMode
+        || a1 == nullptr
+        || a1->m_iSignage != 0xFADED ) {
+        return EnumerateDebuggingDevicesOriginal( a1, a2 );
     }
 
-    DEBUG_PRINT( "[ HAVOC ] Created device\n" );
+    DEBUG_PRINT( "[ HAVOC ] Communication established with usermode!\n" );
 
-    RtlInitUnicodeString( &dosDeviceName, L"\\DosDevices\\Havoc" );
-    status = IoCreateSymbolicLink( &dosDeviceName, &deviceName );
-    if ( !NT_SUCCESS( status ) ) {
-        DEBUG_PRINT( "[ HAVOC ] Failed to create symbolic link\n" );
-        IoDeleteDevice( deviceObject );
-        return status;
-    }
+    // NtConvertBetweenAuxiliaryCounterAndPerformanceCounter() was called by the usermode client
 
+    // unhook
+    InterlockedExchangePointer( ( PVOID* ) gFunc, ( PVOID ) EnumerateDebuggingDevicesOriginal );
+
+    WorkerThread( reinterpret_cast< char* >( a1->m_pBuffer ), a1->m_pGameProcessId, a1->m_pClientProcessId );
+
+    return 1;
+}
+
+NTSTATUS DriverEntry( ) {
     DEBUG_PRINT( "[ HAVOC ] Loaded driver\n" );
+    
+    // place hooks
 
-    DriverObject->MajorFunction[ IRP_MJ_CREATE ] = CreateClose;
-    DriverObject->MajorFunction[ IRP_MJ_CLOSE ] = CreateClose;
-    DriverObject->MajorFunction[ IRP_MJ_DEVICE_CONTROL ] = DeviceControl;
-    DriverObject->DriverUnload = DriverUnload;
+    if ( const auto gKernelBase = Utils::GetModuleInfo<char*>( "ntoskrnl.exe" ) ) {
+        if ( auto Func = Utils::FindPatternImage( gKernelBase,
+            "\x48\x8B\x05\x00\x00\x00\x00\x75\x07\x48\x8B\x05\x00\x00\x00\x00\xE8\x00\x00\x00\x00",
+            "xxx????xxxxx????x????" ) ) {
 
-    status = PsCreateSystemThread( &hThread, THREAD_ALL_ACCESS, NULL, NULL, NULL, WorkerThread, NULL );
-    if ( NT_SUCCESS( status ) )
-        ZwClose( hThread );
+            gFunc = ( DWORD64 ) ( Func = RVA( Func, 7 ) );
+            *( PVOID* ) &EnumerateDebuggingDevicesOriginal = InterlockedExchangePointer( ( PVOID* ) Func, ( PVOID ) EnumerateDebuggingDevicesHook ); // Hook EnumerateDebuggingDevices()
+
+            DEBUG_PRINT( "[ HAVOC ] hooked EnumerateDebuggingDevices!\n" );
+            return STATUS_SUCCESS;
+        }
+        else
+            DEBUG_PRINT( "[ HAVOC ] failed to find EnumerateDebuggingDevices!\n" );
+    }
+    else {
+        DEBUG_PRINT( "[ HAVOC ] failed to find gKernelBase!\n" );
+    }
+
+
+    // now call the hooked function from usermode
 
     return STATUS_SUCCESS;
 }

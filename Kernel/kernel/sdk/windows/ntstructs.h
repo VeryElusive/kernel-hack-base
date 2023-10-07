@@ -87,3 +87,23 @@ typedef struct _PEB32
 	ULONG AtlThunkSListPtr32;
 	ULONG ApiSetMap;
 } PEB32, * PPEB32;
+
+typedef struct _SYSTEM_MODULE
+{
+	HANDLE Section;
+	PVOID MappedBase;
+	PVOID ImageBase;
+	ULONG ImageSize;
+	ULONG Flags;
+	USHORT LoadOrderIndex;
+	USHORT InitOrderIndex;
+	USHORT LoadCount;
+	USHORT OffsetToFileName;
+	UCHAR  FullPathName[ MAXIMUM_FILENAME_LENGTH ];
+} SYSTEM_MODULE, * PSYSTEM_MODULE;
+
+typedef struct _SYSTEM_MODULE_INFORMATION
+{
+	ULONG NumberOfModules;
+	SYSTEM_MODULE Modules[ 1 ];
+} SYSTEM_MODULE_INFORMATION, * PSYSTEM_MODULE_INFORMATION;

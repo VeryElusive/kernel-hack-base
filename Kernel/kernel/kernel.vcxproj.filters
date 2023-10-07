@@ -30,7 +30,7 @@
     <ClCompile Include="communication\communication.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="utils\memory.cpp">
+    <ClCompile Include="utils\hook.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -48,6 +48,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="utils\utils.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="utils\hook.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

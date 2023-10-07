@@ -95,6 +95,7 @@
       <AdditionalOptions>/INTEGRITYCHECK %(AdditionalOptions)</AdditionalOptions>
       <AdditionalLibraryDirectories>ntoskrnl.lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>%(AdditionalDependencies);ntoskrnl.lib</AdditionalDependencies>
+      <EntryPointSymbol>DriverEntry</EntryPointSymbol>
     </Link>
     <ClCompile>
       <PreprocessorDefinitions>%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -108,6 +109,7 @@
       <AdditionalOptions>/INTEGRITYCHECK %(AdditionalOptions)</AdditionalOptions>
       <AdditionalDependencies>%(AdditionalDependencies);ntoskrnl.lib</AdditionalDependencies>
       <AdditionalLibraryDirectories>ntoskrnl.lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <EntryPointSymbol>DriverEntry</EntryPointSymbol>
     </Link>
     <ClCompile>
       <LanguageStandard>stdcpp20</LanguageStandard>
@@ -136,12 +138,13 @@
   <ItemGroup>
     <ClCompile Include="communication\communication.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="utils\memory.cpp" />
+    <ClCompile Include="utils\hook.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="communication\communication.h" />
     <ClInclude Include="sdk\windows\ntapi.h" />
     <ClInclude Include="sdk\windows\ntstructs.h" />
+    <ClInclude Include="utils\hook.h" />
     <ClInclude Include="utils\memory.h" />
     <ClInclude Include="utils\utils.h" />
   </ItemGroup>
