@@ -11,55 +11,42 @@ namespace Utils {
 		return Str;
 
 	}
-	template <typename T = PVOID>
-	__forceinline T GetModuleInfo( const char* Name, DWORD* OutSize = nullptr ) {
-		PVOID Base{ nullptr };
-		DWORD RequiredSize{ 0 };
+	__forceinline PVOID GetModuleBaseAddress( PCHAR name ) {
+		PVOID addr = 0;
 
-		if ( ZwQuerySystemInformation( SystemModuleInformation,
-			nullptr,
-			NULL,
-			&RequiredSize ) != STATUS_INFO_LENGTH_MISMATCH ) {
-
-			return reinterpret_cast< T >( nullptr );
+		ULONG size = 0;
+		NTSTATUS status = ZwQuerySystemInformation( SystemModuleInformation, 0, 0, &size );
+		if ( STATUS_INFO_LENGTH_MISMATCH != status ) {
+			return addr;
 		}
 
-		auto Modules{ reinterpret_cast< SYSTEM_MODULE_INFORMATION* >( ExAllocatePool2( NonPagedPool, RequiredSize, 'HVC' ) ) };
-
-		if ( !Modules ) {
-			return reinterpret_cast< T >( nullptr );
+		auto modules{ reinterpret_cast< PSYSTEM_MODULE_INFORMATION >( ExAllocatePool2( POOL_FLAG_NON_PAGED, size, 'HVC' ) ) };
+		if ( !modules ) {
+			return addr;
 		}
 
-		if ( !NT_SUCCESS( ZwQuerySystemInformation( SystemModuleInformation,
-			Modules,
-			RequiredSize,
-			nullptr ) ) ) {
-			ExFreePool( Modules );
-			return reinterpret_cast< T >( nullptr );
+		if ( !NT_SUCCESS( status = ZwQuerySystemInformation( SystemModuleInformation, modules, size, 0 ) ) ) {
+			ExFreePool( modules );
+			return addr;
 		}
 
-		for ( DWORD i = 0; i < Modules->NumberOfModules; ++i ) {
-			SYSTEM_MODULE CurModule{ Modules->Modules[ i ] };
+		for ( ULONG i = 0; i < modules->NumberOfModules; ++i ) {
+			SYSTEM_MODULE m = modules->Modules[ i ];
 
-			if ( strstr( Utils::LowerStr( ( CHAR* ) CurModule.FullPathName ), Name ) )
-			{
-				Base = CurModule.ImageBase;
-
-				if ( OutSize ) {
-					*OutSize = CurModule.ImageSize;
-				}
-
+			if ( strstr( ( PCHAR ) m.FullPathName, name ) ) {
+				addr = m.ImageBase;
 				break;
 			}
 		}
 
-		ExFreePool( Modules );
-		return reinterpret_cast< T >( Base );
+		ExFreePool( modules );
+		return addr;
 	}
 
-	__forceinline BOOLEAN CheckMask( const char* Base, const char* Pattern, const char* Mask ) {
-		for ( ; *Mask; ++Base, ++Pattern, ++Mask ) {
-			if ( *Mask == 'x' && *Base != *Pattern ) {
+
+	__forceinline BOOLEAN CheckMask( PCHAR base, PCHAR pattern, PCHAR mask ) {
+		for ( ; *mask; ++base, ++pattern, ++mask ) {
+			if ( *mask == 'x' && *base != *pattern ) {
 				return FALSE;
 			}
 		}
@@ -67,39 +54,35 @@ namespace Utils {
 		return TRUE;
 	}
 
-	__forceinline const char* FindPattern( const char* Base, DWORD Length, const char* Pattern, const char* Mask ) {
-		Length -= ( DWORD ) strlen( Mask );
 
-		for ( DWORD i = 0; i <= Length; ++i ) {
-			auto Addr{ &Base[ i ] };
-
-			if ( CheckMask( Addr, Pattern, Mask ) ) {
-				return Addr;
+	__forceinline PVOID FindPattern( PCHAR base, DWORD length, PCHAR pattern, PCHAR mask ) {
+		length -= ( DWORD ) strlen( mask );
+		for ( DWORD i = 0; i <= length; ++i ) {
+			PCHAR addr = &base[ i ];
+			if ( CheckMask( addr, pattern, mask ) ) {
+				return addr;
 			}
 		}
 
 		return 0;
 	}
 
-	__forceinline const char* FindPatternImage( const char* Base, const char* Pattern, const char* Mask ) {
-		const char* Match{ 0 };
+	__forceinline PVOID FindPatternImage( PCHAR base, PCHAR pattern, PCHAR mask ) {
+		PVOID match = 0;
 
-		IMAGE_NT_HEADERS* Headers{ ( PIMAGE_NT_HEADERS ) ( Base + ( ( PIMAGE_DOS_HEADER ) Base )->e_lfanew ) };
-		IMAGE_SECTION_HEADER* Sections{ IMAGE_FIRST_SECTION( Headers ) };
-
-		for ( DWORD i = 0; i < Headers->FileHeader.NumberOfSections; ++i ) {
-			IMAGE_SECTION_HEADER* Section{ &Sections[ i ] };
-
-			if ( *( INT* ) Section->Name == 'EGAP' || memcmp( Section->Name, ".text", 5 ) == 0 ) {
-				Match = FindPattern( Base + Section->VirtualAddress, Section->Misc.VirtualSize, Pattern, Mask );
-
-				if ( Match ) {
+		PIMAGE_NT_HEADERS headers = ( PIMAGE_NT_HEADERS ) ( base + ( ( PIMAGE_DOS_HEADER ) base )->e_lfanew );
+		PIMAGE_SECTION_HEADER sections = IMAGE_FIRST_SECTION( headers );
+		for ( DWORD i = 0; i < headers->FileHeader.NumberOfSections; ++i ) {
+			PIMAGE_SECTION_HEADER section = &sections[ i ];
+			if ( *( PINT ) section->Name == 'EGAP' || memcmp( section->Name, ".text", 5 ) == 0 ) {
+				match = FindPattern( base + section->VirtualAddress, section->Misc.VirtualSize, pattern, mask );
+				if ( match ) {
 					break;
 				}
 			}
 		}
 
-		return Match;
+		return match;
 	}
 
 	__forceinline bool WriteToReadOnlyMemory( void* address, void* buffer, size_t size ) {
@@ -117,5 +100,43 @@ namespace Utils {
 		IoFreeMdl( Mdl );
 
 		return true;
+	}
+
+	//basic write to readonly memory function
+	__forceinline bool write_to_read_only_memory( const char* address, void* buffer, size_t size ) {
+		PMDL Mdl = IoAllocateMdl( (PVOID)address, (ULONG)size, FALSE, FALSE, NULL );
+		if ( !Mdl )
+			return false;
+
+		MmProbeAndLockPages( Mdl, KernelMode, IoReadAccess );
+		PVOID Mapping = MmMapLockedPagesSpecifyCache( Mdl, KernelMode, MmNonCached, NULL, FALSE, NormalPagePriority );
+		MmProtectMdlSystemAddress( Mdl, PAGE_READWRITE );
+
+		memcpy( Mapping, buffer, size );
+		MmUnmapLockedPages( Mapping, Mdl );
+		MmUnlockPages( Mdl );
+		IoFreeMdl( Mdl );
+
+		return true;
+	}
+
+	//basic Hook
+	__forceinline bool HookFunction( const char* function, PVOID outfunction )
+	{
+		//place a r11 jmp hook that returns STATUS_UNSUCCESSFUL
+		unsigned char shell_code[ ] = {
+				0x49, 0xBB, //mov r11
+				0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  //ptr
+				0x41, 0xff, 0xe3,  //jmp r11
+				0xb8,  0x01,  0x00,  0x00, 0xc0, //mov eax, STATUS_UNSUCCESSFUL
+				0xc3 // ret
+		};
+
+		uintptr_t hook_address = reinterpret_cast< uintptr_t >( outfunction );
+
+		//place the hook address in the shellcode
+		memcpy( shell_code + 2, &hook_address, sizeof( hook_address ) );
+
+		return write_to_read_only_memory( function, &shell_code, sizeof( shell_code ) );
 	}
 }

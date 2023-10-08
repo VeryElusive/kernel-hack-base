@@ -129,6 +129,9 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>ntdll.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <UACExecutionLevel>RequireAdministrator</UACExecutionLevel>
+      <GenerateMapFile>true</GenerateMapFile>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -150,14 +153,28 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>ntdll.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <UACExecutionLevel>RequireAdministrator</UACExecutionLevel>
+      <GenerateMapFile>true</GenerateMapFile>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="ext\intel_driver.cpp" />
+    <ClCompile Include="ext\portable_executable.cpp" />
+    <ClCompile Include="ext\service.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="mapper\mapper.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="context.h" />
+    <ClInclude Include="ext\intel_driver.h" />
+    <ClInclude Include="ext\intel_driver_resource.h" />
+    <ClInclude Include="ext\portable_executable.h" />
+    <ClInclude Include="ext\service.h" />
+    <ClInclude Include="mapper\mapper.h" />
+    <ClInclude Include="sdk\windows\ntstructs.h" />
     <ClInclude Include="utils\memory.h" />
+    <ClInclude Include="utils\utils.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

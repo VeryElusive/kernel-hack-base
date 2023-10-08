@@ -1,42 +1,44 @@
 #include <windows.h>
 #include <stdio.h>
 #include <iostream>
+
 #include "utils/memory.h"
+#include "mapper/mapper.h"
+#include "ext/intel_driver.h"
 
 int da2{ 420 };
 int da{ 0 };
 
-PVOID( NTAPI* NtConvertBetweenAuxiliaryCounterAndPerformanceCounter )( PVOID, PVOID, PVOID, PVOID );
+bool Initialise( ) {
+	Context::Comms.m_pGameProcessId = GetCurrentProcessId( );
+	Context::Comms.m_pClientProcessId = GetCurrentProcessId( );
+	Context::Comms.m_iSignage = 0xFADED;
+	Context::Comms.m_pBuffer = &Context::CommunicationBuffer;
 
-void KernelThread( PVOID LParam ) {
-	INT64 Status{ 0 };
+	HANDLE iqvw64e_device_handle = intel_driver::Load( );
 
-	CommsParse_t Data{ *( CommsParse_t* ) LParam };
-	PVOID pData{ &Data };
+	if ( iqvw64e_device_handle == INVALID_HANDLE_VALUE )
+		return false;
 
-	HMODULE Module{ LoadLibrary( L"ntdll.dll" ) };
-
-	if ( !Module ) {
-		return;
+	std::vector<uint8_t> raw_image = { 0 };
+	const std::wstring driver_path = L"C:\\Users\\Admin\\Documents\\GitHub\\MINE\\Kernel-Cheat-Base\\Build\\Release\\kernel.sys";
+	if ( !Utils::ReadFileToMemory( driver_path, &raw_image ) ) {
+		intel_driver::Unload( iqvw64e_device_handle );
+		return false;
 	}
 
-	*( PVOID* ) &NtConvertBetweenAuxiliaryCounterAndPerformanceCounter = GetProcAddress( Module, "NtConvertBetweenAuxiliaryCounterAndPerformanceCounter" );
+	Mapper::MapWorkerDriver( iqvw64e_device_handle, raw_image.data( ), &Context::Comms );
 
-	if ( !NtConvertBetweenAuxiliaryCounterAndPerformanceCounter ) {
-		return;
-	}
-	// Endless function, so if it success, there's an error
-	NtConvertBetweenAuxiliaryCounterAndPerformanceCounter( ( PVOID ) 1, &pData, &Status, nullptr );
-	printf( "error! [nn]" );
+	if ( !intel_driver::Unload( iqvw64e_device_handle ) )
+		return false;
+	
+	printf( "[+] initialised!\n" );
+	return true;
 }
 
 int main( void ) {
-    Context::Comms.m_pGameProcessId = GetCurrentProcessId( );
-    Context::Comms.m_pClientProcessId = GetCurrentProcessId( );
-    Context::Comms.m_iSignage = 0xFADED;
-    Context::Comms.m_pBuffer = &Context::CommunicationBuffer;
-
-	CreateThread( nullptr, 0, ( LPTHREAD_START_ROUTINE ) KernelThread, &Context::Comms, 0, nullptr );
+	if ( !Initialise( ) )
+		return -1;
 
     std::cout << "PRE: " << da << std::endl;
     Memory::Write( &da, &da2, 4 );

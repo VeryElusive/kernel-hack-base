@@ -96,6 +96,7 @@
       <AdditionalLibraryDirectories>ntoskrnl.lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>%(AdditionalDependencies);ntoskrnl.lib</AdditionalDependencies>
       <EntryPointSymbol>DriverEntry</EntryPointSymbol>
+      <GenerateMapFile>true</GenerateMapFile>
     </Link>
     <ClCompile>
       <PreprocessorDefinitions>%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -110,6 +111,7 @@
       <AdditionalDependencies>%(AdditionalDependencies);ntoskrnl.lib</AdditionalDependencies>
       <AdditionalLibraryDirectories>ntoskrnl.lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <EntryPointSymbol>DriverEntry</EntryPointSymbol>
+      <GenerateMapFile>true</GenerateMapFile>
     </Link>
     <ClCompile>
       <LanguageStandard>stdcpp20</LanguageStandard>

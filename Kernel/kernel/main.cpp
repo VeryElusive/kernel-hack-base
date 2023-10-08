@@ -7,22 +7,21 @@
 
 #include "../../shared_structs.h"
 
-INT64( NTAPI* EnumerateDebuggingDevicesOriginal )( PVOID, PVOID );
-DWORD64 gFunc{};
-
 #define DEBUG_PRINT( msg, ... ) DbgPrintEx( 0, 0, msg, __VA_ARGS__ );
 
 // this one function can exist solely on the stack. i can safely remove entire driver EXCEPT for this function.
-VOID WorkerThread( char* CommunicationBuffer, int GamePID, int ClientPID ) {
-    if ( !CommunicationBuffer || !GamePID || !ClientPID )
+void __stdcall WorkerThread( void* base, CommsParse_t* comms ) {
+    if ( !comms ) {
+        DEBUG_PRINT( "[ HAVOC ] comms was null!\n" );
         return;
+    }
 
-    // this is inside hook, now we unhook, unload driver, etc
+    // now we NOP all driver memory except for this function, etc
 
-    while ( true ) {
+    do {
         DataRequest_t req{ };
         SIZE_T read;
-        if ( Memory::ReadProcessMemory( ( HANDLE ) ClientPID, CommunicationBuffer, &req, sizeof( DataRequest_t ), &read ) != STATUS_SUCCESS )
+        if ( Memory::ReadProcessMemory( ( HANDLE ) comms->m_pClientProcessId, comms->m_pBuffer, &req, sizeof( DataRequest_t ), &read ) != STATUS_SUCCESS )
             continue;
 
         if ( req.m_iType && req.m_pBuffer && req.m_nSize ) {
@@ -30,70 +29,27 @@ VOID WorkerThread( char* CommunicationBuffer, int GamePID, int ClientPID ) {
 
             switch ( req.m_iType ) {
             case REQUEST_READ:
-                Memory::ReadProcessMemory( ( HANDLE ) GamePID, req.m_pAddress, buf, req.m_nSize, &read );
-                Memory::WriteProcessMemory( ( HANDLE ) ClientPID, req.m_pBuffer, buf, req.m_nSize, &read );
+                Memory::ReadProcessMemory( ( HANDLE ) comms->m_pGameProcessId, req.m_pAddress, buf, req.m_nSize, &read );
+                Memory::WriteProcessMemory( ( HANDLE ) comms->m_pClientProcessId, req.m_pBuffer, buf, req.m_nSize, &read );
                 break;
             case REQUEST_WRITE:
-                Memory::ReadProcessMemory( ( HANDLE ) ClientPID, req.m_pBuffer, buf, req.m_nSize, &read );
-                Memory::WriteProcessMemory( ( HANDLE ) GamePID, req.m_pAddress, buf, req.m_nSize, &read );
+                Memory::ReadProcessMemory( ( HANDLE ) comms->m_pClientProcessId, req.m_pBuffer, buf, req.m_nSize, &read );
+                Memory::WriteProcessMemory( ( HANDLE ) comms->m_pGameProcessId, req.m_pAddress, buf, req.m_nSize, &read );
                 break;
             }
 
             req.m_iType = 0;
-            Memory::WriteProcessMemory( ( HANDLE ) ClientPID, CommunicationBuffer, &req, sizeof( DataRequest_t ), &read );
+            Memory::WriteProcessMemory( ( HANDLE ) comms->m_pClientProcessId, comms->m_pBuffer, &req, sizeof( DataRequest_t ), &read );
 
             //DEBUG_PRINT( "[ HAVOC ] wrote to buffer\n" );
         }
-    }
+    } while ( true );
 }
 
-#define RVA(addr, size) (const char*)addr + *(INT*)((BYTE*)addr + ((size) - 4)) + size
-
-INT64 NTAPI EnumerateDebuggingDevicesHook( CommsParse_t* a1, PINT64 a2 ) {
-    DEBUG_PRINT( "[ HAVOC ] detour called!\n" );
-    if ( ExGetPreviousMode( ) != UserMode
-        || a1 == nullptr
-        || a1->m_iSignage != 0xFADED ) {
-        return EnumerateDebuggingDevicesOriginal( a1, a2 );
-    }
-
-    DEBUG_PRINT( "[ HAVOC ] Communication established with usermode!\n" );
-
-    // NtConvertBetweenAuxiliaryCounterAndPerformanceCounter() was called by the usermode client
-
-    // unhook
-    InterlockedExchangePointer( ( PVOID* ) gFunc, ( PVOID ) EnumerateDebuggingDevicesOriginal );
-
-    WorkerThread( reinterpret_cast< char* >( a1->m_pBuffer ), a1->m_pGameProcessId, a1->m_pClientProcessId );
-
-    return 1;
-}
-
-NTSTATUS DriverEntry( ) {
+NTSTATUS DriverEntry( void* base, CommsParse_t* comms ) {
     DEBUG_PRINT( "[ HAVOC ] Loaded driver\n" );
-    
-    // place hooks
 
-    if ( const auto gKernelBase = Utils::GetModuleInfo<char*>( "ntoskrnl.exe" ) ) {
-        if ( auto Func = Utils::FindPatternImage( gKernelBase,
-            "\x48\x8B\x05\x00\x00\x00\x00\x75\x07\x48\x8B\x05\x00\x00\x00\x00\xE8\x00\x00\x00\x00",
-            "xxx????xxxxx????x????" ) ) {
-
-            gFunc = ( DWORD64 ) ( Func = RVA( Func, 7 ) );
-            *( PVOID* ) &EnumerateDebuggingDevicesOriginal = InterlockedExchangePointer( ( PVOID* ) Func, ( PVOID ) EnumerateDebuggingDevicesHook ); // Hook EnumerateDebuggingDevices()
-
-            DEBUG_PRINT( "[ HAVOC ] hooked EnumerateDebuggingDevices!\n" );
-            return STATUS_SUCCESS;
-        }
-        else
-            DEBUG_PRINT( "[ HAVOC ] failed to find EnumerateDebuggingDevices!\n" );
-    }
-    else {
-        DEBUG_PRINT( "[ HAVOC ] failed to find gKernelBase!\n" );
-    }
-
-
-    // now call the hooked function from usermode
+    WorkerThread( base, comms );
 
     return STATUS_SUCCESS;
 }
