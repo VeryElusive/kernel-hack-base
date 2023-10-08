@@ -9,21 +9,21 @@ bool service::RegisterAndStart( const std::wstring& driver_path ) {
 	HKEY dservice;
 	LSTATUS status = RegCreateKeyW( HKEY_LOCAL_MACHINE, servicesPath.c_str( ), &dservice ); //Returns Ok if already exists
 	if ( status != ERROR_SUCCESS ) {
-		printf( "[-] Can't create service key\n" );
+		//printf( "[-] Can't create service key\n" );
 		return false;
 	}
 
 	status = RegSetKeyValueW( dservice, NULL, L"ImagePath", REG_EXPAND_SZ, nPath.c_str( ), ( DWORD ) ( nPath.size( ) * sizeof( wchar_t ) ) );
 	if ( status != ERROR_SUCCESS ) {
 		RegCloseKey( dservice );
-		printf( "[-] Can't create 'ImagePath' registry value\n" );
+		//printf( "[-] Can't create 'ImagePath' registry value\n" );
 		return false;
 	}
 
 	status = RegSetKeyValueW( dservice, NULL, L"Type", REG_DWORD, &ServiceTypeKernel, sizeof( DWORD ) );
 	if ( status != ERROR_SUCCESS ) {
 		RegCloseKey( dservice );
-		printf( "[-] Can't create 'Type' registry value\n" );
+		//printf( "[-] Can't create 'Type' registry value\n" );
 		return false;
 	}
 
@@ -41,7 +41,7 @@ bool service::RegisterAndStart( const std::wstring& driver_path ) {
 	BOOLEAN SeLoadDriverWasEnabled;
 	NTSTATUS Status = RtlAdjustPrivilege( SE_LOAD_DRIVER_PRIVILEGE, TRUE, FALSE, &SeLoadDriverWasEnabled );
 	if ( !NT_SUCCESS( Status ) ) {
-		printf( "Fatal error: failed to acquire SE_LOAD_DRIVER_PRIVILEGE. Make sure you are running as administrator.\n" );
+		//printf( "Fatal error: failed to acquire SE_LOAD_DRIVER_PRIVILEGE. Make sure you are running as administrator.\n" );
 		return false;
 	}
 
@@ -50,7 +50,7 @@ bool service::RegisterAndStart( const std::wstring& driver_path ) {
 	RtlInitUnicodeString( &serviceStr, wdriver_reg_path.c_str( ) );
 
 	Status = NtLoadDriver( &serviceStr );
-	//printf( "[+] NtLoadDriver Status 0x" << std::hex << Status << std::endl );
+	////printf( "[+] NtLoadDriver Status 0x" << std::hex << Status << std::endl );
 
 	//Never should occur since kdmapper checks for "IsRunning" driver before
 	if ( Status == 0xC000010E ) {// STATUS_IMAGE_ALREADY_LOADED
@@ -82,9 +82,9 @@ bool service::StopAndRemove( const std::wstring& driver_name ) {
 
 	auto NtUnloadDriver = ( NtUnloadDriver_t ) GetProcAddress( ntdll, "NtUnloadDriver" );
 	NTSTATUS st = NtUnloadDriver( &serviceStr );
-	//printf( "[+] NtUnloadDriver Status 0x" << std::hex << st << std::endl );
+	////printf( "[+] NtUnloadDriver Status 0x" << std::hex << st << std::endl );
 	if ( st != 0x0 ) {
-		printf( "[-] Driver Unload Failed!!\n" );
+		//printf( "[-] Driver Unload Failed!!\n" );
 		status = RegDeleteTreeW( HKEY_LOCAL_MACHINE, servicesPath.c_str( ) );
 		return false; //lets consider unload fail as error because can cause problems with anti cheats later
 	}

@@ -171,14 +171,14 @@ namespace intel_driver
 		// Setup function call
 		HMODULE ntdll = GetModuleHandleA( "ntdll.dll" );
 		if ( ntdll == 0 ) {
-			printf( "[-] Failed to load ntdll.dll\n" ); //never should happens
+			//printf( "[-] Failed to load ntdll.dll\n" ); //never should happens
 			return false;
 		}
 
 		const auto NtAddAtom = reinterpret_cast< void* >( GetProcAddress( ntdll, "NtAddAtom" ) );
 		if ( !NtAddAtom )
 		{
-			printf("[-] Failed to get export ntdll.NtAddAtom\n" );
+			//printf("[-] Failed to get export ntdll.NtAddAtom\n" );
 			return false;
 		}
 
@@ -188,7 +188,7 @@ namespace intel_driver
 
 		static uint64_t kernel_NtAddAtom = GetKernelModuleExport( device_handle, intel_driver::ntoskrnlAddr, "NtAddAtom" );
 		if ( !kernel_NtAddAtom ) {
-			printf( "[-] Failed to get export ntoskrnl.NtAddAtom\n" );
+			//printf( "[-] Failed to get export ntoskrnl.NtAddAtom\n" );
 			return false;
 		}
 
@@ -199,7 +199,7 @@ namespace intel_driver
 			original_kernel_function[ 1 ] == kernel_injected_jmp[ 1 ] &&
 			original_kernel_function[ sizeof( kernel_injected_jmp ) - 2 ] == kernel_injected_jmp[ sizeof( kernel_injected_jmp ) - 2 ] &&
 			original_kernel_function[ sizeof( kernel_injected_jmp ) - 1 ] == kernel_injected_jmp[ sizeof( kernel_injected_jmp ) - 1 ] ) {
-			printf( "[-] FAILED!: The code was already hooked!! another instance of kdmapper running?!\n" );
+			//printf( "[-] FAILED!: The code was already hooked!! another instance of kdmapper running?!\n" );
 			return false;
 		}
 

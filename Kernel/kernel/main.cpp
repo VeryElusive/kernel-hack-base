@@ -9,8 +9,8 @@
 
 #define DEBUG_PRINT( msg, ... ) DbgPrintEx( 0, 0, msg, __VA_ARGS__ );
 
-// this one function can exist solely on the stack. i can safely remove entire driver EXCEPT for this function.
-void __stdcall WorkerThread( void* base, CommsParse_t* comms ) {
+// this one function can exist solely on the stack. i can safely remove entire driver except this function.
+void WorkerThread( void* base, CommsParse_t* comms ) {
     if ( !comms ) {
         DEBUG_PRINT( "[ HAVOC ] comms was null!\n" );
         return;
@@ -25,6 +25,9 @@ void __stdcall WorkerThread( void* base, CommsParse_t* comms ) {
             continue;
 
         if ( req.m_iType && req.m_pBuffer && req.m_nSize ) {
+            if ( req.m_nSize == 0xFADED )
+                break;
+
             char buf[ 16 ]{ };
 
             switch ( req.m_iType ) {
@@ -49,7 +52,10 @@ void __stdcall WorkerThread( void* base, CommsParse_t* comms ) {
 NTSTATUS DriverEntry( void* base, CommsParse_t* comms ) {
     DEBUG_PRINT( "[ HAVOC ] Loaded driver\n" );
 
+    HANDLE hThread{ };
+    
     WorkerThread( base, comms );
 
+    ZwClose( hThread );
     return STATUS_SUCCESS;
 }
