@@ -43,3 +43,16 @@ typedef struct _SYSTEM_HANDLE_INFORMATION_EX
 	ULONG_PTR Reserved;
 	SYSTEM_HANDLE Handles[ 1 ];
 } SYSTEM_HANDLE_INFORMATION_EX, * PSYSTEM_HANDLE_INFORMATION_EX;
+
+
+typedef enum _MODE {
+	KernelMode,
+	UserMode,
+	MaximumMode
+} MODE;
+
+typedef enum _MM_PAGE_PRIORITY {
+	LowPagePriority,
+	NormalPagePriority = 16,
+	HighPagePriority = 32
+} MM_PAGE_PRIORITY;

@@ -14,8 +14,7 @@ enum {
 struct CommsParse_t {
     int m_pClientProcessId;
     int m_pGameProcessId;
-    int m_iSignage;
+    int m_iEntryDeltaFromBase;
+    int m_iDriverSize;
     DataRequest_t* m_pBuffer;
 };
-
-#define IOCTL_NUMBER 0xFADED

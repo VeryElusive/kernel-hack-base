@@ -10,23 +10,31 @@
 #define DEBUG_PRINT( msg, ... ) DbgPrintEx( 0, 0, msg, __VA_ARGS__ );
 
 // this one function can exist solely on the stack. i can safely remove entire driver except this function.
-void WorkerThread( void* base, CommsParse_t* comms ) {
+NTSTATUS DriverEntry( CommsParse_t* comms ) {
+    DEBUG_PRINT( "[ HAVOC ] Loaded driver\n" );
+
     if ( !comms ) {
         DEBUG_PRINT( "[ HAVOC ] comms was null!\n" );
-        return;
+        return 1;
     }
 
-    // now we NOP all driver memory except for this function, etc
+    SIZE_T read = 0;
+    //const auto base{ ( void* ) ( ( SIZE_T ) DriverEntry - comms->m_iEntryDeltaFromBase ) };
+    //memset( base, 0xCC, comms->m_iEntryDeltaFromBase );
 
     do {
+        read = 0;
         DataRequest_t req{ };
-        SIZE_T read;
+
+        // TODO: make this only init physical addresses once or woteva
         if ( Memory::ReadProcessMemory( ( HANDLE ) comms->m_pClientProcessId, comms->m_pBuffer, &req, sizeof( DataRequest_t ), &read ) != STATUS_SUCCESS )
             continue;
 
         if ( req.m_iType && req.m_pBuffer && req.m_nSize ) {
-            if ( req.m_nSize == 0xFADED )
+            if ( req.m_nSize == 0xFADED ) {
+                DEBUG_PRINT( "[ HAVOC ] exiting" );
                 break;
+            }
 
             char buf[ 16 ]{ };
 
@@ -47,15 +55,6 @@ void WorkerThread( void* base, CommsParse_t* comms ) {
             //DEBUG_PRINT( "[ HAVOC ] wrote to buffer\n" );
         }
     } while ( true );
-}
 
-NTSTATUS DriverEntry( void* base, CommsParse_t* comms ) {
-    DEBUG_PRINT( "[ HAVOC ] Loaded driver\n" );
-
-    HANDLE hThread{ };
-    
-    WorkerThread( base, comms );
-
-    ZwClose( hThread );
     return STATUS_SUCCESS;
 }

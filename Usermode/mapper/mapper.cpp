@@ -1,6 +1,7 @@
 #include "mapper.h"
+#include "../../shared_structs.h"
 
-void Mapper::RelocateImageByDelta( portable_executable::vec_relocs relocs, const uint64_t delta ) {
+void CMapper::RelocateImageByDelta( portable_executable::vec_relocs relocs, const uint64_t delta ) {
 	for ( const auto& current_reloc : relocs ) {
 		for ( auto i = 0u; i < current_reloc.count; ++i ) {
 			const uint16_t type = current_reloc.item[ i ] >> 12;
@@ -13,7 +14,7 @@ void Mapper::RelocateImageByDelta( portable_executable::vec_relocs relocs, const
 }
 
 // Fix cookie by @Jerem584
-bool Mapper::FixSecurityCookie( void* local_image, uint64_t kernel_image_base ) {
+bool CMapper::FixSecurityCookie( void* local_image, uint64_t kernel_image_base ) {
 	auto headers = portable_executable::GetNtHeaders( local_image );
 	if ( !headers )
 		return false;
@@ -40,7 +41,7 @@ bool Mapper::FixSecurityCookie( void* local_image, uint64_t kernel_image_base ) 
 	return true;
 }
 
-bool Mapper::ResolveImports( HANDLE iqvw64e_device_handle, portable_executable::vec_imports imports ) {
+bool CMapper::ResolveImports( HANDLE iqvw64e_device_handle, portable_executable::vec_imports imports ) {
 	for ( const auto& current_import : imports ) {
 		ULONG64 Module = Utils::GetKernelModuleAddress( current_import.module_name );
 		if ( !Module ) {
@@ -73,7 +74,80 @@ bool Mapper::ResolveImports( HANDLE iqvw64e_device_handle, portable_executable::
 	return true;
 }
 
-void Mapper::MapWorkerDriver( HANDLE iqvw64e_device_handle, uint8_t* data, void* comms ) {
+uint64_t CMapper::AllocIndependentPages( HANDLE device_handle, uint32_t size )
+{
+	const auto base = intel_driver::MmAllocateIndependentPagesEx( device_handle, size );
+	if ( !base )
+	{
+		//Log( L"[-] Error allocating independent pages" << std::endl );
+		return 0;
+	}
+
+	if ( !intel_driver::MmSetPageProtection( device_handle, base, size, PAGE_EXECUTE_READWRITE ) )
+	{
+		//Log( L"[-] Failed to change page protections" << std::endl );
+		intel_driver::MmFreeIndependentPages( device_handle, base, size );
+		return 0;
+	}
+
+	return base;
+}
+
+//????
+#define PAGE_SIZE 0x1000
+uint64_t AllocMdlMemory( HANDLE iqvw64e_device_handle, uint64_t size, uint64_t* mdlPtr ) {
+	/*added by psec*/
+	LARGE_INTEGER LowAddress, HighAddress;
+	LowAddress.QuadPart = 0;
+	HighAddress.QuadPart = 0xffff'ffff'ffff'ffffULL;
+
+	uint64_t pages = ( size / PAGE_SIZE ) + 1;
+	auto mdl = intel_driver::MmAllocatePagesForMdl( iqvw64e_device_handle, LowAddress, HighAddress, LowAddress, pages * ( uint64_t ) PAGE_SIZE );
+	if ( !mdl ) {
+		//Log( L"[-] Can't allocate pages for mdl" << std::endl );
+		return { 0 };
+	}
+
+	uint32_t byteCount = 0;
+	if ( !intel_driver::ReadMemory( iqvw64e_device_handle, mdl + 0x028 /*_MDL : byteCount*/, &byteCount, sizeof( uint32_t ) ) ) {
+		//Log( L"[-] Can't read the _MDL : byteCount" << std::endl );
+		return { 0 };
+	}
+
+	if ( byteCount < size ) {
+		//Log( L"[-] Couldn't allocate enough memory, cleaning up" << std::endl );
+		intel_driver::MmFreePagesFromMdl( iqvw64e_device_handle, mdl );
+		intel_driver::FreePool( iqvw64e_device_handle, mdl );
+		return { 0 };
+	}
+
+	auto mappingStartAddress = intel_driver::MmMapLockedPagesSpecifyCache( iqvw64e_device_handle, mdl, KernelMode, MmCached, NULL, FALSE, NormalPagePriority );
+	if ( !mappingStartAddress ) {
+		//Log( L"[-] Can't set mdl pages cache, cleaning up." << std::endl );
+		intel_driver::MmFreePagesFromMdl( iqvw64e_device_handle, mdl );
+		intel_driver::FreePool( iqvw64e_device_handle, mdl );
+		return { 0 };
+	}
+
+	const auto result = intel_driver::MmProtectMdlSystemAddress( iqvw64e_device_handle, mdl, PAGE_EXECUTE_READWRITE );
+	if ( !result ) {
+		//Log( L"[-] Can't change protection for mdl pages, cleaning up" << std::endl );
+		intel_driver::MmUnmapLockedPages( iqvw64e_device_handle, mappingStartAddress, mdl );
+		intel_driver::MmFreePagesFromMdl( iqvw64e_device_handle, mdl );
+		intel_driver::FreePool( iqvw64e_device_handle, mdl );
+		return { 0 };
+	}
+	//Log( L"[+] Allocated pages for mdl" << std::endl );
+
+	if ( mdlPtr )
+		*mdlPtr = mdl;
+
+	return mappingStartAddress;
+}
+
+#define FUNCTION_SIZE 4533
+
+void CMapper::MapWorkerDriver( HANDLE iqvw64e_device_handle, uint8_t* data, void* comms ) {
 	const PIMAGE_NT_HEADERS64 nt_headers = portable_executable::GetNtHeaders( data );
 
 	if ( !nt_headers )
@@ -91,6 +165,7 @@ void Mapper::MapWorkerDriver( HANDLE iqvw64e_device_handle, uint8_t* data, void*
 	DWORD TotalVirtualHeaderSize = ( IMAGE_FIRST_SECTION( nt_headers ) )->VirtualAddress;
 	image_size = image_size - TotalVirtualHeaderSize;
 
+	uint64_t mdlptr = 0;
 	uint64_t kernel_image_base = intel_driver::AllocatePool( iqvw64e_device_handle, POOL_TYPE::NonPagedPool, image_size );
 
 	if ( !kernel_image_base ) {
@@ -113,41 +188,46 @@ void Mapper::MapWorkerDriver( HANDLE iqvw64e_device_handle, uint8_t* data, void*
 			memcpy( local_section, reinterpret_cast< void* >( reinterpret_cast< uint64_t >( data ) + current_image_section[ i ].PointerToRawData ), current_image_section[ i ].SizeOfRawData );
 		}
 
+		// TODO: cleanup!!!
 		uint64_t realBase = kernel_image_base;
 		kernel_image_base -= TotalVirtualHeaderSize;
 
 		// Resolve relocs and imports
 		RelocateImageByDelta( portable_executable::GetRelocs( local_image_base ), kernel_image_base - nt_headers->OptionalHeader.ImageBase );
 
-		if ( !FixSecurityCookie( local_image_base, kernel_image_base ) )
-			break;
+		//if ( !FixSecurityCookie( local_image_base, kernel_image_base ) )
+		//	break;
 
 		if ( !ResolveImports( iqvw64e_device_handle, portable_executable::GetImports( local_image_base ) ) ) {
 			kernel_image_base = realBase;
 			break;
 		}
 
-		if ( !intel_driver::WriteMemory( iqvw64e_device_handle, realBase, ( PVOID ) ( ( uintptr_t ) local_image_base + TotalVirtualHeaderSize ), image_size ) ) {
+		const uint64_t kernel_entry = kernel_image_base + nt_headers->OptionalHeader.AddressOfEntryPoint;
+		void* local_entry = ( void* ) ( ( uintptr_t ) local_image_base + nt_headers->OptionalHeader.AddressOfEntryPoint );
+
+		std::cout << "delta: " << ( image_size - nt_headers->OptionalHeader.AddressOfEntryPoint ) - FUNCTION_SIZE << std::endl;
+		if ( !intel_driver::WriteMemory( iqvw64e_device_handle, kernel_entry, local_entry, image_size - nt_headers->OptionalHeader.AddressOfEntryPoint ) ) {
 			kernel_image_base = realBase;
 			break;
 		}
 
 		// Call driver entry point
-		const uint64_t address_of_entry_point = kernel_image_base + nt_headers->OptionalHeader.AddressOfEntryPoint;
 		NTSTATUS status = 0;
 
-		//void* base, char* communicationBuffer, int gamePID, int clientPID
-		if ( !intel_driver::CallKernelFunction( iqvw64e_device_handle, &status, address_of_entry_point, realBase, comms ) ) {
-			kernel_image_base = realBase;
-			break;
-		}
+		std::cout << "Base: " << realBase << std::endl;
+		std::cout << "Size: " << image_size << std::endl;
+		std::cout << "entry: " << nt_headers->OptionalHeader.AddressOfEntryPoint << std::endl;
+		
 
+		reinterpret_cast< CommsParse_t* >( comms )->m_iEntryDeltaFromBase = nt_headers->OptionalHeader.AddressOfEntryPoint;
+
+		intel_driver::CallKernelFunction( iqvw64e_device_handle, &status, kernel_entry, comms );
 		kernel_image_base = realBase;
 
 	} while ( false );
 
 	VirtualFree( local_image_base, 0, MEM_RELEASE );
 
-	// even tho most memory will be freed with the worker thread
 	intel_driver::FreePool( iqvw64e_device_handle, kernel_image_base );
 }
