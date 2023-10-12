@@ -145,7 +145,7 @@ uint64_t AllocMdlMemory( HANDLE iqvw64e_device_handle, uint64_t size, uint64_t* 
 	return mappingStartAddress;
 }
 
-#define FUNCTION_SIZE 4533
+#define FUNCTION_SIZE 4500
 
 void CMapper::MapWorkerDriver( HANDLE iqvw64e_device_handle, uint8_t* data, void* comms ) {
 	const PIMAGE_NT_HEADERS64 nt_headers = portable_executable::GetNtHeaders( data );
@@ -173,6 +173,7 @@ void CMapper::MapWorkerDriver( HANDLE iqvw64e_device_handle, uint8_t* data, void
 		return;
 	}
 
+	// TODO: remove everything that is unnecessary!
 	do {
 		// Copy image headers
 		memcpy( local_image_base, data, nt_headers->OptionalHeader.SizeOfHeaders );
@@ -180,13 +181,38 @@ void CMapper::MapWorkerDriver( HANDLE iqvw64e_device_handle, uint8_t* data, void
 		// Copy image sections
 		const PIMAGE_SECTION_HEADER current_image_section = IMAGE_FIRST_SECTION( nt_headers );
 
+		int IAT{ };
+
 		for ( auto i = 0; i < nt_headers->FileHeader.NumberOfSections; ++i ) {
 			if ( ( current_image_section[ i ].Characteristics & IMAGE_SCN_CNT_UNINITIALIZED_DATA ) > 0 )
 				continue;
 
+			const char* sectionName = reinterpret_cast< const char* >( current_image_section[ i ].Name );
+			char sectionNameStr[ 9 ];
+			memcpy( sectionNameStr, sectionName, 8 );
+			sectionNameStr[ 8 ] = '\0';
+
+			if ( strcmp( sectionNameStr, ".idata" ) )
+				IAT = i;
+
+			if ( strcmp( sectionNameStr, ".text" ) != 0 &&     // .text
+				strcmp( sectionNameStr, ".data" ) != 0 &&     // .data
+				strcmp( sectionNameStr, ".rdata" ) != 0 &&    // .rdata
+				strcmp( sectionNameStr, ".idata" ) != 0 /*&&    // IAT
+				\strcmp( sectionNameStr, ".rsrc" ) != 0*/ ) {     // resource data
+
+				auto local_section = reinterpret_cast< void* >( reinterpret_cast< uint64_t >( local_image_base ) + current_image_section[ i ].VirtualAddress );
+				memset( local_section, 0, current_image_section[ i ].SizeOfRawData );
+			}
+
 			auto local_section = reinterpret_cast< void* >( reinterpret_cast< uint64_t >( local_image_base ) + current_image_section[ i ].VirtualAddress );
 			memcpy( local_section, reinterpret_cast< void* >( reinterpret_cast< uint64_t >( data ) + current_image_section[ i ].PointerToRawData ), current_image_section[ i ].SizeOfRawData );
 		}
+
+		// once we have imports, destroy the IAT lel
+		const auto imports{ portable_executable::GetImports( local_image_base ) };
+		auto IAT_section = reinterpret_cast< void* >( reinterpret_cast< uint64_t >( local_image_base ) + current_image_section[ IAT ].VirtualAddress );
+		memset( IAT_section, 0, current_image_section[ IAT ].SizeOfRawData );
 
 		// TODO: cleanup!!!
 		uint64_t realBase = kernel_image_base;
@@ -198,7 +224,7 @@ void CMapper::MapWorkerDriver( HANDLE iqvw64e_device_handle, uint8_t* data, void
 		//if ( !FixSecurityCookie( local_image_base, kernel_image_base ) )
 		//	break;
 
-		if ( !ResolveImports( iqvw64e_device_handle, portable_executable::GetImports( local_image_base ) ) ) {
+		if ( !ResolveImports( iqvw64e_device_handle, imports ) ) {
 			kernel_image_base = realBase;
 			break;
 		}
@@ -206,8 +232,7 @@ void CMapper::MapWorkerDriver( HANDLE iqvw64e_device_handle, uint8_t* data, void
 		const uint64_t kernel_entry = kernel_image_base + nt_headers->OptionalHeader.AddressOfEntryPoint;
 		void* local_entry = ( void* ) ( ( uintptr_t ) local_image_base + nt_headers->OptionalHeader.AddressOfEntryPoint );
 
-		std::cout << "delta: " << ( image_size - nt_headers->OptionalHeader.AddressOfEntryPoint ) - FUNCTION_SIZE << std::endl;
-		if ( !intel_driver::WriteMemory( iqvw64e_device_handle, kernel_entry, local_entry, image_size - nt_headers->OptionalHeader.AddressOfEntryPoint ) ) {
+		if ( !intel_driver::WriteMemory( iqvw64e_device_handle, realBase, ( PVOID ) ( ( uintptr_t ) local_image_base + TotalVirtualHeaderSize ), image_size ) ) {
 			kernel_image_base = realBase;
 			break;
 		}

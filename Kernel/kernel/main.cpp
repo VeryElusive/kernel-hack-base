@@ -11,10 +11,10 @@
 
 // this one function can exist solely on the stack. i can safely remove entire driver except this function.
 NTSTATUS DriverEntry( CommsParse_t* comms ) {
-    DEBUG_PRINT( "[ HAVOC ] Loaded driver\n" );
+    //DEBUG_PRINT( "[ HAVOC ] Loaded driver\n" );
 
     if ( !comms ) {
-        DEBUG_PRINT( "[ HAVOC ] comms was null!\n" );
+        //DEBUG_PRINT( "[ HAVOC ] comms was null!\n" );
         return 1;
     }
 
