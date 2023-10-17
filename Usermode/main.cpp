@@ -5,6 +5,7 @@
 #include "utils/memory.h"
 #include "mapper/mapper.h"
 #include "ext/intel_driver.h"
+#include "overlay/overlay.h"
 
 int da2{ 420 };
 int da{ 0 };
@@ -36,18 +37,23 @@ void Initialise( ) {
 }
 
 int main( void ) {
-	std::thread init( Initialise );
-	init.detach( );
+	//std::thread init( Initialise );
+	//init.detach( );
 
-    std::cout << "PRE: " << da << std::endl;
-    Memory::Write( &da, &da2, 4 );
-    std::cout << "POST: " << da << std::endl;
+    //std::cout << "PRE: " << da << std::endl;
+    //Memory::Write( &da, &da2, 4 );
+    //std::cout << "POST: " << da << std::endl;
 
 	//intel_driver::Unload( iqvw64e_device_handle );
 
-	Memory::UnloadDriver( );
+	//Memory::UnloadDriver( );
 
-	Sleep( 10000 );
+	std::thread overlay{ Overlay::Main };
+	overlay.detach( );
+
+	for ( auto start = std::chrono::steady_clock::now( ), now = start; now < start + std::chrono::seconds{ 5 }; now = std::chrono::steady_clock::now( ) ) {
+
+	}
 
     return 0;
 }

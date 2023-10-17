@@ -1,5 +1,6 @@
 #pragma once
 #include <windef.h>
+#include <winternl.h>
 
 typedef NTSTATUS( *NtLoadDriver_t )( PUNICODE_STRING DriverServiceName );
 typedef NTSTATUS( *NtUnloadDriver_t )( PUNICODE_STRING DriverServiceName );

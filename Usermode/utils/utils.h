@@ -3,6 +3,7 @@
 
 #include <string>
 #include <fstream>
+#include <vector>
 
 namespace Utils {
 	__forceinline std::wstring GetFullTempPath( ) {
@@ -117,5 +118,19 @@ namespace Utils {
 			}
 		}
 		return 0;
+	}
+
+	__forceinline std::string WideToMultiByte( const std::wstring& wstr ) {
+		const int sizeNeeded{ WideCharToMultiByte( CP_UTF8, 0, wstr.c_str( ), -1, nullptr, 0, nullptr, nullptr ) };
+		std::string result( sizeNeeded, 0 );
+		WideCharToMultiByte( CP_UTF8, 0, wstr.c_str( ), -1, &result[ 0 ], sizeNeeded, nullptr, nullptr );
+		return result;
+	}
+
+	__forceinline std::wstring MultiByteToWide( const std::string& str ) {
+		const int sizeNeeded{ MultiByteToWideChar( CP_UTF8, 0, str.c_str( ), -1, nullptr, 0 ) };
+		std::wstring result( sizeNeeded, 0 );
+		MultiByteToWideChar( CP_UTF8, 0, str.c_str( ), -1, &result[ 0 ], sizeNeeded );
+		return result;
 	}
 }

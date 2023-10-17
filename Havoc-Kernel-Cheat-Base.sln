@@ -10,6 +10,7 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Shared", "Shared", "{99C2CA77-D301-421F-B8E2-F95649D92A36}"
 	ProjectSection(SolutionItems) = preProject
 		shared_structs.h = shared_structs.h
+		xorstr.h = xorstr.h
 	EndProjectSection
 EndProject
 Global
