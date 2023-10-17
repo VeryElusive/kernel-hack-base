@@ -3,9 +3,9 @@
 #include <random>
 #include <chrono>
 
-void Overlay::Main( )
-{
-    CDrawer d{ CreateOverlayWindow( ) };
+void Overlay::Main( ) {
+    HWND hwnd = FindWindow( "SDL_app", NULL );
+    CDrawer d{ CreateOverlayWindow( ), hwnd };
 
     // font_resource
     auto font{ d.CreateFontResource( "Arial", 25 ) };
@@ -14,7 +14,7 @@ void Overlay::Main( )
     auto layer = d.CreateLayer( );
 
     // text_resource
-    auto watermark = d.CreateText( font, "simple d2d1 overlay" );
+    auto watermark = d.CreateText( font, "i hate fat people." );
     watermark.Align( ETextAlign::right );
 
     std::uint64_t frametime = 1;
@@ -67,7 +67,7 @@ LRESULT CALLBACK WndProc( HWND window, UINT message, WPARAM wparam, LPARAM lpara
 
 HWND Overlay::CreateOverlayWindow( ) {
     WNDCLASSA wc = { 0 };
-    wc.lpszClassName = xors( "fuck" );
+    wc.lpszClassName = xors( "HVC" );
     wc.style = CS_HREDRAW | CS_VREDRAW;
     wc.lpfnWndProc = WndProc;
 
@@ -77,15 +77,14 @@ HWND Overlay::CreateOverlayWindow( ) {
 
     const auto flags = WS_EX_NOREDIRECTIONBITMAP
         | WS_EX_LAYERED
-        | WS_EX_TRANSPARENT
-        | WS_EX_TOPMOST;
+        | WS_EX_TRANSPARENT;
 
-    const auto width = GetSystemMetrics( SM_CXSCREEN );
-    const auto height = GetSystemMetrics( SM_CYSCREEN );
+    const auto width = GetSystemMetrics( SM_CXSCREEN ) - 2;
+    const auto height = GetSystemMetrics( SM_CYSCREEN ) - 1;
 
     const auto window = CreateWindowEx( flags
         , wc.lpszClassName
-        , xors( "test" )
+        , xors( "HVC" )
         , WS_VISIBLE | WS_POPUP
         , -1
         , -1

@@ -100,7 +100,7 @@ ComPtr<IDCompositionTarget> create_composition_target( const HWND window,
 
     ComPtr<IDCompositionTarget> comp_target;
     comp_device->CreateTargetForHwnd( window
-        , true // topmost
+        , false // topmost
         , comp_target.GetAddressOf( ) );
 
 
@@ -158,7 +158,7 @@ ID2D1SolidColorBrush* CDrawer::LocalBrush( const Color& color ) {
     return brush.Get( );
 }
 
-CDrawer::CDrawer( HWND window ) : hwnd( window ) {
+CDrawer::CDrawer( HWND window, HWND gameWindow ) : hwnd( window ), gameHWND( gameWindow ) {
     ComPtr<IDXGIDevice> dxgi_device;
     m_pSwapChain = CreateSwapChain( window, dxgi_device );
 
@@ -182,12 +182,16 @@ CDrawer::~CDrawer( ) noexcept {
 }
 
 void CDrawer::Display( ) {
+    SetWindowPos( gameHWND, hwnd, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE );
+
     m_pDeviceContext->EndDraw( );
     // should probably put error handling here but this can fail for stupid reasons
     m_pSwapChain->Present( 0, 0 );
 
     m_pDeviceContext->BeginDraw( );
     m_pDeviceContext->Clear( );
+
+    //SetWindowPos( hwnd, gameHWND, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE );
 }
 
 void CDrawer::PumpMessages( ) const {
@@ -216,13 +220,11 @@ void CDrawer::EllipseFilled( const Vector2D& center, float radius_x, float radiu
 
 void CDrawer::Rect( const Vector2D& pos, const Vector2D& size, const Color& color, float width ) {
     D2D1_RECT_F rect{ pos.x, pos.y, size.x, size.y };
-
     m_pDeviceContext->DrawRectangle( rect, LocalBrush( color ), width );
 }
 
 void CDrawer::RectFilled( const Vector2D& pos, const Vector2D& size, const Color& color ) {
     D2D1_RECT_F rect{ pos.x, pos.y, size.x, size.y };
-
     m_pDeviceContext->FillRectangle( rect, LocalBrush( color ) );
 }
 

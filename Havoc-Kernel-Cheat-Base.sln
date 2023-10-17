@@ -3,11 +3,11 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.2.32526.322
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "usermode", "Usermode\Usermode.vcxproj", "{7CA3C21A-DF6A-4BBB-ACAE-0CB3AB330B02}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "usermode", "usermode\usermode.vcxproj", "{7CA3C21A-DF6A-4BBB-ACAE-0CB3AB330B02}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "kernel", "Kernel\kernel\kernel.vcxproj", "{73B50C08-28B7-4AFA-8E0A-D84203D66522}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Shared", "Shared", "{99C2CA77-D301-421F-B8E2-F95649D92A36}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "shared", "Shared", "{99C2CA77-D301-421F-B8E2-F95649D92A36}"
 	ProjectSection(SolutionItems) = preProject
 		shared_structs.h = shared_structs.h
 		xorstr.h = xorstr.h

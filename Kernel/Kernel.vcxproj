@@ -23,7 +23,7 @@
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
     <ProjectGuid>{80221e1b-8a5d-4b5a-a90f-48aeed95aeb1}</ProjectGuid>
-    <RootNamespace>Kernel</RootNamespace>
+    <RootNamespace>kernel</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />

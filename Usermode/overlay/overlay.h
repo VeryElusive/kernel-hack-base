@@ -119,6 +119,7 @@ namespace Overlay {
         ComPtr<IDWriteFactory>      m_pDWriteFactory;
         // can be retrieved only from swapchain that was created with ...ForHwnd function
         HWND                        hwnd;
+        HWND                        gameHWND;
 
         // thread safe buffer storage
         ID2D1SolidColorBrush* LocalBrush( const Color& color );
@@ -133,7 +134,7 @@ namespace Overlay {
 
         using TranslationGuard_t = std::unique_ptr<ID2D1DeviceContext, _translation_destructor>;
 
-        explicit CDrawer( HWND window );
+        explicit CDrawer( HWND ourWindow, HWND gameWindow );
         // need to call EndDraw
         ~CDrawer( ) noexcept;
 

@@ -22,7 +22,7 @@
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
     <ProjectGuid>{7ca3c21a-df6a-4bbb-acae-0cb3ab330b02}</ProjectGuid>
-    <RootNamespace>Usermode</RootNamespace>
+    <RootNamespace>usermode</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
     <ProjectName>usermode</ProjectName>
   </PropertyGroup>
