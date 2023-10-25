@@ -145,8 +145,6 @@ uint64_t AllocMdlMemory( HANDLE iqvw64e_device_handle, uint64_t size, uint64_t* 
 	return mappingStartAddress;
 }
 
-#define FUNCTION_SIZE 4500
-
 void CMapper::MapWorkerDriver( HANDLE iqvw64e_device_handle, uint8_t* data, void* comms ) {
 	const PIMAGE_NT_HEADERS64 nt_headers = portable_executable::GetNtHeaders( data );
 
@@ -206,8 +204,8 @@ void CMapper::MapWorkerDriver( HANDLE iqvw64e_device_handle, uint8_t* data, void
 		// Resolve relocs and imports
 		RelocateImageByDelta( portable_executable::GetRelocs( local_image_base ), kernel_image_base - nt_headers->OptionalHeader.ImageBase );
 
-		//if ( !FixSecurityCookie( local_image_base, kernel_image_base ) )
-		//	break;
+		if ( !FixSecurityCookie( local_image_base, kernel_image_base ) )
+			break;
 
 		if ( !ResolveImports( iqvw64e_device_handle, portable_executable::GetImports( local_image_base ) ) ) {
 			kernel_image_base = realBase;
@@ -226,7 +224,7 @@ void CMapper::MapWorkerDriver( HANDLE iqvw64e_device_handle, uint8_t* data, void
 
 		// Call driver entry point
 		NTSTATUS status = 0;
-		reinterpret_cast< CommsParse_t* >( comms )->m_iEntryDeltaFromBase = nt_headers->OptionalHeader.AddressOfEntryPoint;
+		//reinterpret_cast< CommsParse_t* >( comms )->m_iEntryDeltaFromBase = nt_headers->OptionalHeader.AddressOfEntryPoint;
 
 		intel_driver::CallKernelFunction( iqvw64e_device_handle, &status, kernel_entry, comms );
 		intel_driver::FreePool( iqvw64e_device_handle, realBase );

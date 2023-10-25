@@ -3,56 +3,26 @@
 #include <random>
 #include <chrono>
 
-void Overlay::Main( ) {
-    HWND hwnd = FindWindow( "SDL_app", NULL );
-    CDrawer d{ CreateOverlayWindow( ), hwnd };
+void Overlay::Main( CDrawer* d ) {
 
     // font_resource
-    auto font{ d.CreateFontResource( "Arial", 25 ) };
+    auto font{ d->CreateFontResource( "Arial", 25 ) };
 
     // CLayerResource
-    auto layer = d.CreateLayer( );
+    auto layer = d->CreateLayer( );
 
     // text_resource
-    auto watermark = d.CreateText( font, "i hate fat people." );
+    auto watermark = d->CreateText( font, "i hate fat people." );
     watermark.Align( ETextAlign::right );
 
-    std::uint64_t frametime = 1;
-    std::uint64_t frametime_sum = 1;
-    std::uint64_t frame_count = 1;
-    std::uint64_t avg_fps = 1;
-
     while ( true ) {
-        using std::chrono::steady_clock;
-        using std::chrono::microseconds;
-        using std::chrono::duration_cast;
+        d->PumpMessages( );
+        if ( m_pVisualCallback )
+            m_pVisualCallback( d );
 
-        const auto begin = steady_clock::now( );
+        watermark.Draw( { 500,0 }, Color( 100, 255, 255 ) );
 
-        // message pump -------------------------------------------------------
-        d.PumpMessages( );
-
-        // average fps --------------------------------------------------------
-        font.Align( ETextAlign::right );
-        font.Draw( L"current fps: " + std::to_wstring( 1000000 / frametime )
-            + L"\nstabilized: " + std::to_wstring( 1000000 / ( frametime_sum / frame_count ) )
-            + L"\naverage over 1000 frames: " + std::to_wstring( avg_fps )
-            , { 0, 0 }
-        , Color( 0, 255, 0 ) );
-
-        watermark.Draw( { 500,0 }, Color( 0, 0, 255 ) );
-
-        d.Display( );
-
-        frametime = static_cast< std::uint64_t >(
-            duration_cast< microseconds >( steady_clock::now( ) - begin ).count( ) );
-        frametime_sum += frametime;
-
-        if ( ++frame_count == 1000 ) {
-            avg_fps = 1000000 / ( frametime_sum / 1000 );
-            frametime_sum = 1;
-            frame_count = 1;
-        }
+        d->Display( );
     }
 }
 

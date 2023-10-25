@@ -36,6 +36,12 @@ void Initialise( ) {
 	printf( "unloaded driver!\n" );
 }
 
+void __cdecl VisualCallback( Overlay::CDrawer* d ) {
+	d->RoundedRectFilled( { 300,100 }, { 200,100 }, Color( 255, 90, 180 ), 5.f );
+
+	d->RectFilled( { 0,100 }, { 200,100 }, Color( 100, 255, 255 ) );
+}
+
 int main( void ) {
 	//std::thread init( Initialise );
 	//init.detach( );
@@ -46,14 +52,21 @@ int main( void ) {
 
 	//intel_driver::Unload( iqvw64e_device_handle );
 
-	//Memory::UnloadDriver( );
+	HWND hwnd = FindWindow( "SDL_app", NULL );
+	Overlay::CDrawer d{ Overlay::CreateOverlayWindow( ), hwnd };
 
-	std::thread overlay{ Overlay::Main };
+	std::thread overlay{ Overlay::Main, &d };
 	overlay.detach( );
+
+	Overlay::m_pVisualCallback = VisualCallback;
+
+	//LoadCheatModule( Overlay::m_pVisualCallback );
 
 	for ( auto start = std::chrono::steady_clock::now( ), now = start; now < start + std::chrono::seconds{ 5 }; now = std::chrono::steady_clock::now( ) ) {
 
 	}
+
+	Memory::UnloadDriver( );
 
     return 0;
 }

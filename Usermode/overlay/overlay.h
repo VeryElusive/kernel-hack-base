@@ -22,11 +22,15 @@
 // TODO: stop using ComPtr and make your own memory management
 
 namespace Overlay {
+    class CDrawer;
     template<typename T>
     using ComPtr = Microsoft::WRL::ComPtr<T>;
 
+    typedef void( __cdecl* VisualCallback_t )( Overlay::CDrawer* );
+    inline VisualCallback_t m_pVisualCallback{ };
+
     HWND CreateOverlayWindow( );
-    void Main( );
+    void Main( CDrawer* d );
 
     enum class ETextAlign {
         // on the left of drawing position
