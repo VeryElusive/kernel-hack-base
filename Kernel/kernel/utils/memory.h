@@ -1,6 +1,5 @@
 #pragma once
 #include "../sdk/windows/ntapi.h"
-#include "../communication/communication.h"
 
 using uint64_t = LONGLONG;
 using uint8_t = char;

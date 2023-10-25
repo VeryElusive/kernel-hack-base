@@ -52,8 +52,7 @@ int main( void ) {
 
 	//intel_driver::Unload( iqvw64e_device_handle );
 
-	HWND hwnd = FindWindow( "SDL_app", NULL );
-	Overlay::CDrawer d{ Overlay::CreateOverlayWindow( ), hwnd };
+	Overlay::CDrawer d{ Overlay::CreateOverlayWindow( ), FindWindowA( NULL, "Steam" ) };
 
 	std::thread overlay{ Overlay::Main, &d };
 	overlay.detach( );
@@ -62,7 +61,7 @@ int main( void ) {
 
 	//LoadCheatModule( Overlay::m_pVisualCallback );
 
-	for ( auto start = std::chrono::steady_clock::now( ), now = start; now < start + std::chrono::seconds{ 5 }; now = std::chrono::steady_clock::now( ) ) {
+	for ( auto start = std::chrono::steady_clock::now( ), now = start; now < start + std::chrono::seconds{ 10 }; now = std::chrono::steady_clock::now( ) ) {
 
 	}
 

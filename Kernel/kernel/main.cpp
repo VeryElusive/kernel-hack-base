@@ -1,9 +1,7 @@
 #pragma warning ( disable : 4100 )
 
 #include "utils/memory.h"
-#include "utils/hook.h"
 #include "utils/utils.h"
-#include "communication/communication.h"
 
 #include "../../shared_structs.h"
 #include <ntddk.h>
@@ -35,7 +33,7 @@ NTSTATUS DriverEntry( CommsParse_t* comms ) {
 
         if ( req.m_iType && req.m_pBuffer && req.m_nSize ) {
             if ( req.m_nSize == 0xFADED ) {
-                //DEBUG_PRINT( "[ HAVOC ] exiting" );
+                //DEBUG_PRINT( "[ HAVOC ] exiting.\n" );
                 break;
             }
 

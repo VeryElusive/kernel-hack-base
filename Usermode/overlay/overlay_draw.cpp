@@ -122,7 +122,7 @@ CLayerResource::CLayerResource( ID2D1DeviceContext* dc, ComPtr<ID2D1Layer>&& lay
 void CLayerResource::Push( const Vector2D& pos, const Vector2D& size, float opacity ) {
     // i have not tested this and it may take size as pos + size /shrug
 
-    D2D1_RECT_F rect{ pos.x, pos.y, size.x, size.y };
+    D2D1_RECT_F rect{ pos.x, pos.y, pos.x + size.x, pos.y + size.y };
 
     // Push the layer with the content bounds.
     m_pDeviceContext->PushLayer( D2D1::LayerParameters( rect
@@ -219,22 +219,22 @@ void CDrawer::EllipseFilled( const Vector2D& center, float radius_x, float radiu
 }
 
 void CDrawer::Rect( const Vector2D& pos, const Vector2D& size, const Color& color, float width ) {
-    D2D1_RECT_F rect{ pos.x, pos.y, size.x, size.y };
+    D2D1_RECT_F rect{ pos.x, pos.y, pos.x + size.x, pos.y + size.y };
     m_pDeviceContext->DrawRectangle( rect, LocalBrush( color ), width );
 }
 
 void CDrawer::RectFilled( const Vector2D& pos, const Vector2D& size, const Color& color ) {
-    D2D1_RECT_F rect{ pos.x, pos.y, size.x, size.y };
+    D2D1_RECT_F rect{ pos.x, pos.y, pos.x + size.x, pos.y + size.y };
     m_pDeviceContext->FillRectangle( rect, LocalBrush( color ) );
 }
 
 void Overlay::CDrawer::RoundedRect( const Vector2D& pos, const Vector2D& size, const Color& color, float rounding, float width ) {
-    D2D1_RECT_F rect{ pos.x, pos.y, size.x, size.y };
+    D2D1_RECT_F rect{ pos.x, pos.y, pos.x + size.x, pos.y + size.y };
     m_pDeviceContext->DrawRoundedRectangle( { rect, rounding, rounding, }, LocalBrush( color ), width );
 }
 
 void Overlay::CDrawer::RoundedRectFilled( const Vector2D& pos, const Vector2D& size, const Color& color, float rounding ) {
-    D2D1_RECT_F rect{ pos.x, pos.y, size.x, size.y };
+    D2D1_RECT_F rect{ pos.x, pos.y, pos.x + size.x, pos.y + size.y };
     m_pDeviceContext->FillRoundedRectangle( { rect, rounding, rounding, }, LocalBrush( color ) );
 }
 

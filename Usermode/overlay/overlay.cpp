@@ -4,12 +4,11 @@
 #include <chrono>
 
 void Overlay::Main( CDrawer* d ) {
-
     // font_resource
     auto font{ d->CreateFontResource( "Arial", 25 ) };
 
     // CLayerResource
-    auto layer = d->CreateLayer( );
+    //auto layer = d->CreateLayer( );
 
     // text_resource
     auto watermark = d->CreateText( font, "i hate fat people." );
@@ -45,19 +44,17 @@ HWND Overlay::CreateOverlayWindow( ) {
     if ( !class_atom )
         return { };
 
-    const auto flags = WS_EX_NOREDIRECTIONBITMAP
-        | WS_EX_LAYERED
-        | WS_EX_TRANSPARENT;
+    const auto flags = WS_EX_TRANSPARENT | WS_EX_LAYERED | WS_EX_NOACTIVATE;
 
     const auto width = GetSystemMetrics( SM_CXSCREEN ) - 2;
-    const auto height = GetSystemMetrics( SM_CYSCREEN ) - 1;
+    const auto height = GetSystemMetrics( SM_CYSCREEN ) - 2;
 
     const auto window = CreateWindowEx( flags
         , wc.lpszClassName
         , xors( "HVC" )
         , WS_VISIBLE | WS_POPUP
-        , -1
-        , -1
+        , 1
+        , 1
         , width
         , height
         , nullptr
