@@ -36,6 +36,9 @@
     <ClCompile Include="overlay\overlay.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="game (TEMP MOVE THIS TO DLL)\esp.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="utils\memory.h">
@@ -72,6 +75,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="overlay\overlay.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="game (TEMP MOVE THIS TO DLL)\sdk.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="game (TEMP MOVE THIS TO DLL)\esp.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

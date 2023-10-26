@@ -2,10 +2,10 @@
 #include <stdio.h>
 #include <iostream>
 
-#include "utils/memory.h"
 #include "mapper/mapper.h"
 #include "ext/intel_driver.h"
-#include "overlay/overlay.h"
+
+#include "game (TEMP MOVE THIS TO DLL)/esp.h"
 
 int da2{ 420 };
 int da{ 0 };
@@ -37,6 +37,8 @@ void Initialise( ) {
 }
 
 void __cdecl VisualCallback( Overlay::CDrawer* d ) {
+	Features::Visuals.Main( d );
+
 	d->RoundedRectFilled( { 300,100 }, { 200,100 }, Color( 255, 90, 180 ), 5.f );
 
 	d->RectFilled( { 0,100 }, { 200,100 }, Color( 100, 255, 255 ) );
@@ -61,10 +63,12 @@ int main( void ) {
 
 	//LoadCheatModule( Overlay::m_pVisualCallback );
 
-	for ( auto start = std::chrono::steady_clock::now( ), now = start; now < start + std::chrono::seconds{ 10 }; now = std::chrono::steady_clock::now( ) ) {
+	if ( !Game::Init( ) )
+		goto END;
 
-	}
+	while ( true ) { };
 
+END:
 	Memory::UnloadDriver( );
 
     return 0;

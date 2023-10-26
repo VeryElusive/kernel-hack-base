@@ -162,6 +162,7 @@
     <ClCompile Include="ext\intel_driver.cpp" />
     <ClCompile Include="ext\portable_executable.cpp" />
     <ClCompile Include="ext\service.cpp" />
+    <ClCompile Include="game (TEMP MOVE THIS TO DLL)\esp.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="mapper\mapper.cpp" />
     <ClCompile Include="overlay\overlay.cpp" />
@@ -173,6 +174,8 @@
     <ClInclude Include="ext\intel_driver_resource.h" />
     <ClInclude Include="ext\portable_executable.h" />
     <ClInclude Include="ext\service.h" />
+    <ClInclude Include="game (TEMP MOVE THIS TO DLL)\esp.h" />
+    <ClInclude Include="game (TEMP MOVE THIS TO DLL)\sdk.h" />
     <ClInclude Include="mapper\mapper.h" />
     <ClInclude Include="overlay\overlay.h" />
     <ClInclude Include="sdk\color.h" />
