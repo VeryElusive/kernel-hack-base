@@ -18,6 +18,7 @@ namespace intel_driver
 	constexpr uint32_t ioctl1 = 0x80862007;
 	constexpr DWORD iqvw64e_timestamp = 0x5284EAC3;
 	extern ULONG64 ntoskrnlAddr;
+	inline uint8_t original_kernel_function[ 12 ];
 
 	typedef struct _COPY_MEMORY_BUFFER_INFO
 	{
@@ -183,7 +184,6 @@ namespace intel_driver
 		}
 
 		uint8_t kernel_injected_jmp[ ] = { 0x48, 0xb8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xe0 };
-		uint8_t original_kernel_function[ sizeof( kernel_injected_jmp ) ];
 		*( uint64_t* ) &kernel_injected_jmp[ 2 ] = kernel_function_address;
 
 		static uint64_t kernel_NtAddAtom = GetKernelModuleExport( device_handle, intel_driver::ntoskrnlAddr, "NtAddAtom" );
@@ -192,8 +192,10 @@ namespace intel_driver
 			return false;
 		}
 
-		if ( !ReadMemory( device_handle, kernel_NtAddAtom, &original_kernel_function, sizeof( kernel_injected_jmp ) ) )
-			return false;
+		if ( !original_kernel_function[ 0 ] ) {
+			if ( !ReadMemory( device_handle, kernel_NtAddAtom, &original_kernel_function, sizeof( kernel_injected_jmp ) ) )
+				return false;
+		}
 
 		if ( original_kernel_function[ 0 ] == kernel_injected_jmp[ 0 ] &&
 			original_kernel_function[ 1 ] == kernel_injected_jmp[ 1 ] &&

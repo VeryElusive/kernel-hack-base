@@ -204,8 +204,8 @@ void CMapper::MapWorkerDriver( HANDLE iqvw64e_device_handle, uint8_t* data, void
 		// Resolve relocs and imports
 		RelocateImageByDelta( portable_executable::GetRelocs( local_image_base ), kernel_image_base - nt_headers->OptionalHeader.ImageBase );
 
-		if ( !FixSecurityCookie( local_image_base, kernel_image_base ) )
-			break;
+		//if ( !FixSecurityCookie( local_image_base, kernel_image_base ) )
+		//	break;
 
 		if ( !ResolveImports( iqvw64e_device_handle, portable_executable::GetImports( local_image_base ) ) ) {
 			kernel_image_base = realBase;

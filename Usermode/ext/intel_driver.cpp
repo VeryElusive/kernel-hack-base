@@ -219,6 +219,11 @@ bool intel_driver::ClearWdFilterDriverList( HANDLE device_handle ) {
 bool intel_driver::Unload( HANDLE device_handle ) {
 	//printf( "[<] Unloading vulnerable driver\n" );
 
+	if ( original_kernel_function[ 0 ] ) {
+		uint64_t kernel_NtAddAtom = GetKernelModuleExport( device_handle, intel_driver::ntoskrnlAddr, "NtAddAtom" );
+		WriteToReadOnlyMemory( device_handle, kernel_NtAddAtom, original_kernel_function, sizeof( original_kernel_function ) );
+	}
+
 	if ( device_handle && device_handle != INVALID_HANDLE_VALUE ) {
 		CloseHandle( device_handle );
 	}

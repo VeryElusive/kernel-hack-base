@@ -23,12 +23,25 @@ NTSTATUS DriverEntry( CommsParse_t* comms ) {
     //const auto base{ ( void* ) ( ( SIZE_T ) DriverEntry - comms->m_iEntryDeltaFromBase ) };
     //memset( base, 0xCC, comms->m_iEntryDeltaFromBase );
 
+    PEPROCESS clientProcess = NULL;
+    PEPROCESS gameProcess = NULL;
+    if ( !comms->m_pGameProcessId || !comms->m_pClientProcessId )
+        return 1;
+
+    NTSTATUS status{ PsLookupProcessByProcessId( ( HANDLE ) comms->m_pGameProcessId, &gameProcess ) };
+    if ( status != STATUS_SUCCESS )
+        return 1;
+
+    status = PsLookupProcessByProcessId( ( HANDLE ) comms->m_pGameProcessId, &clientProcess );
+    if ( status != STATUS_SUCCESS )
+        return 1;
+
     do {
         read = 0;
         DataRequest_t req{ };
 
         // TODO: make this only init physical addresses once or woteva
-        if ( Memory::ReadProcessMemory( ( HANDLE ) comms->m_pClientProcessId, comms->m_pBuffer, &req, sizeof( DataRequest_t ), &read ) != STATUS_SUCCESS )
+        if ( Memory::ReadProcessMemory( clientProcess, comms->m_pBuffer, &req, sizeof( DataRequest_t ), &read ) != STATUS_SUCCESS )
             continue;
 
         if ( req.m_iType && req.m_pBuffer && req.m_nSize ) {
@@ -41,17 +54,17 @@ NTSTATUS DriverEntry( CommsParse_t* comms ) {
 
             switch ( req.m_iType ) {
             case REQUEST_READ:
-                Memory::ReadProcessMemory( ( HANDLE ) comms->m_pGameProcessId, req.m_pAddress, buf, req.m_nSize, &read );
-                Memory::WriteProcessMemory( ( HANDLE ) comms->m_pClientProcessId, req.m_pBuffer, buf, req.m_nSize, &read );
+                Memory::ReadProcessMemory( gameProcess, req.m_pAddress, buf, req.m_nSize, &read );
+                Memory::WriteProcessMemory( clientProcess, req.m_pBuffer, buf, req.m_nSize, &read );
                 break;
             case REQUEST_WRITE:
-                Memory::ReadProcessMemory( ( HANDLE ) comms->m_pClientProcessId, req.m_pBuffer, buf, req.m_nSize, &read );
-                Memory::WriteProcessMemory( ( HANDLE ) comms->m_pGameProcessId, req.m_pAddress, buf, req.m_nSize, &read );
+                Memory::ReadProcessMemory( clientProcess, req.m_pBuffer, buf, req.m_nSize, &read );
+                Memory::WriteProcessMemory( gameProcess, req.m_pAddress, buf, req.m_nSize, &read );
                 break;
             }
 
             req.m_iType = 0;
-            Memory::WriteProcessMemory( ( HANDLE ) comms->m_pClientProcessId, comms->m_pBuffer, &req, sizeof( DataRequest_t ), &read );
+            Memory::WriteProcessMemory( clientProcess, comms->m_pBuffer, &req, sizeof( DataRequest_t ), &read );
 
             //DEBUG_PRINT( "[ HAVOC ] wrote to buffer\n" );
         }
