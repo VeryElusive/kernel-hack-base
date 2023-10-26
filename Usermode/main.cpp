@@ -59,14 +59,14 @@ int main( void ) {
 	Memory::Write( &da3, &da2, 4 );
 	std::cout << "POST: " << da3 << std::endl;
 
-	//Overlay::CDrawer d{ Overlay::CreateOverlayWindow( ), FindWindowA( NULL, "Steam" ) };
+	Overlay::CDrawer d{ Overlay::CreateOverlayWindow( ), FindWindowA( NULL, "Steam" ) };
 
-	//std::thread overlay{ Overlay::Main, &d };
-	//overlay.detach( );
+	std::thread overlay{ Overlay::Main, &d };
+	overlay.detach( );
 
 	/* you can open game now */
 
-	//Overlay::m_pVisualCallback = VisualCallback;
+	Overlay::m_pVisualCallback = VisualCallback;
 
 	//LoadCheatModule( Overlay::m_pVisualCallback );
 

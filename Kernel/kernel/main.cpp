@@ -6,6 +6,11 @@
 #include "../../shared_structs.h"
 #include <ntddk.h>
 
+/*
+* BSOD if you don't call PsLookupProcessByProcessId
+* so when we start modifying mem of a different process, see if we can just call PsLookupProcessByProcessId on client pid.
+*/
+
 // TODO: when u can be fucked, go through and only map this one function and just parse in the imports in the driverentry in a buffer
 
 #define DEBUG_PRINT( msg, ... ) DbgPrintEx( 0, 0, msg, __VA_ARGS__ );
