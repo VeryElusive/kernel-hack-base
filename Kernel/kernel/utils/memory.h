@@ -17,7 +17,7 @@ using uint8_t = char;
 #define PMASK ( ~0xfull << 8 ) & 0xfffffffffull
 
 namespace Memory {
-	__forceinline PVOID GetProcessBaseAddress( PEPROCESS pProcess );
+	__forceinline PVOID GetProcessBaseAddress( HANDLE pid );
 
 	__forceinline DWORD GetUserDirectoryTableBaseOffset( );
 
@@ -38,9 +38,9 @@ namespace Memory {
 
 
 	//
-	__forceinline NTSTATUS ReadProcessMemory( PEPROCESS pProcess, PVOID Address, PVOID AllocatedBuffer, SIZE_T size, SIZE_T* read );
+	__forceinline NTSTATUS ReadProcessMemory( HANDLE pid, PVOID Address, PVOID AllocatedBuffer, SIZE_T size, SIZE_T* read );
 
-	__forceinline NTSTATUS WriteProcessMemory( PEPROCESS pProcess, PVOID Address, PVOID AllocatedBuffer, SIZE_T size, SIZE_T* written );
+	__forceinline NTSTATUS WriteProcessMemory( HANDLE pid, PVOID Address, PVOID AllocatedBuffer, SIZE_T size, SIZE_T* written );
 
 	__forceinline void memcpyINLINED( unsigned char* dest, const unsigned char* src, size_t size ) {
 		for ( size_t i = 0; i < size; ++i ) {
@@ -48,7 +48,15 @@ namespace Memory {
 		}
 	}
 
-	__forceinline PVOID GetProcessBaseAddress( PEPROCESS pProcess ) {
+	__forceinline PVOID GetProcessBaseAddress( HANDLE pid ) {
+		PEPROCESS pProcess = NULL;
+		if ( pid == 0 )
+			return 0;
+
+		NTSTATUS NtRet = PsLookupProcessByProcessId( pid, &pProcess );
+		if ( NtRet != STATUS_SUCCESS )
+			return 0;
+
 		PVOID Base = PsGetProcessSectionBaseAddress( pProcess );
 		ObDereferenceObject( pProcess );
 		return Base;
@@ -194,9 +202,13 @@ namespace Memory {
 
 
 	//
-	__forceinline NTSTATUS ReadProcessMemory( PEPROCESS pProcess, PVOID Address, PVOID AllocatedBuffer, SIZE_T size, SIZE_T* read )
+	__forceinline NTSTATUS ReadProcessMemory( HANDLE pid, PVOID Address, PVOID AllocatedBuffer, SIZE_T size, SIZE_T* read )
 	{
-		NTSTATUS NtRet{ STATUS_SUCCESS };
+		PEPROCESS pProcess = NULL;
+		if ( pid == 0 ) return STATUS_UNSUCCESSFUL;
+
+		NTSTATUS NtRet = PsLookupProcessByProcessId( pid, &pProcess );
+		if ( NtRet != STATUS_SUCCESS ) return NtRet;
 
 		ULONG_PTR process_dirbase = GetProcessCr3( pProcess );
 		ObDereferenceObject( pProcess );
@@ -222,9 +234,13 @@ namespace Memory {
 		return NtRet;
 	}
 
-	__forceinline NTSTATUS WriteProcessMemory( PEPROCESS pProcess, PVOID Address, PVOID AllocatedBuffer, SIZE_T size, SIZE_T* written )
+	__forceinline NTSTATUS WriteProcessMemory( HANDLE pid, PVOID Address, PVOID AllocatedBuffer, SIZE_T size, SIZE_T* written )
 	{
-		NTSTATUS NtRet{ STATUS_SUCCESS };
+		PEPROCESS pProcess = NULL;
+		if ( pid == 0 ) return STATUS_UNSUCCESSFUL;
+
+		NTSTATUS NtRet = PsLookupProcessByProcessId( pid, &pProcess );
+		if ( NtRet != STATUS_SUCCESS ) return NtRet;
 
 		ULONG_PTR process_dirbase = GetProcessCr3( pProcess );
 		ObDereferenceObject( pProcess );

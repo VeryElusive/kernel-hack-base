@@ -15,6 +15,6 @@ struct CommsParse_t {
     int m_pClientProcessId;
     int m_pGameProcessId;
     //int m_iEntryDeltaFromBase;
-    int m_iDriverSize;
+    //int m_iDriverSize;
     DataRequest_t* m_pBuffer;
 };

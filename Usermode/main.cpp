@@ -64,6 +64,8 @@ int main( void ) {
 	//std::thread overlay{ Overlay::Main, &d };
 	//overlay.detach( );
 
+	/* you can open game now */
+
 	//Overlay::m_pVisualCallback = VisualCallback;
 
 	//LoadCheatModule( Overlay::m_pVisualCallback );
