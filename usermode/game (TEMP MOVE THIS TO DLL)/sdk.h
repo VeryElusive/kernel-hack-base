@@ -1,6 +1,7 @@
 #pragma once
 #include "../utils/memory.h"
 #include "../../xorstr.h"
+#include "../sdk/windows/ntstructs.h"
 #include <windows.h>
 #include <stdio.h>
 #include <iostream>
@@ -28,15 +29,25 @@ public:
 namespace Game {
 	inline CBufferList* m_pBufferList{ };
 	inline bool Init( ) {
-		void* moduleBase{ Memory::GetModuleBase( xors( "GameAssembly.dll" ) ) };
-		while ( !moduleBase ) { 
-			std::this_thread::sleep_for( std::chrono::seconds( 2 ) );
-			moduleBase = Memory::GetModuleBase( xors( "GameAssembly.dll" ) );
-		}
+		auto test = LoadLibrary( "d2d1.dll" );
+
+		// Replace "example.dll" with the name of your DLL.
+		HMODULE hModule = GetModuleHandle( TEXT( "d2d1.dll" ) );
+
+		//void* moduleBase{ GetModuleBaseAddress( xors( L"d2d1.dll" ) ) };
+		//while ( !moduleBase ) { 
+		//	std::this_thread::sleep_for( std::chrono::seconds( 2 ) );
+		//	moduleBase = GetModuleBaseAddress( xors( L"d2d1.dll" ) );
+		//}
+		if ( hModule )
+			std::cout << "found!" << std::endl;
+
+		if ( Memory::GetModuleBase( L"d2d1.dll" ) )
+			std::cout << "WWWWWWWWWW!" << std::endl;
 
 		// Object name: BaseNetworkable_TypeInfo
 		// Type: BaseNetworkable_c
-		void* baseNetworkable{ Memory::Read< void* >( ADD_TO_ADDRESS( moduleBase, 53494576 ) ) };
+		/*void* baseNetworkable{ Memory::Read< void* >( ADD_TO_ADDRESS( moduleBase, 53494576 ) ) };
 		if ( !baseNetworkable )
 			return false;
 
@@ -62,7 +73,7 @@ namespace Game {
 		
 		CBufferList::m_pObjectList = Memory::Read< CObjectList* >( ADD_TO_ADDRESS( entityAndKeys, 0x28 ) );
 		if ( !CBufferList::m_pObjectList )
-			return false;
+			return false;*/
 
 		return true;
 	}

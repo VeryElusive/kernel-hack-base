@@ -9,7 +9,6 @@
 
 int da2{ 420 };
 int da{ 0 };
-int da3{ 0 };
 
 HANDLE iqvw64e_device_handle;
 
@@ -45,7 +44,7 @@ void __cdecl VisualCallback( Overlay::CDrawer* d ) {
 	d->RectFilled( { 0,100 }, { 200,100 }, Color( 100, 255, 255 ) );
 }
 
-int main( void ) {
+int main( ) {
 	std::thread init( Initialise );
 	init.detach( );
 
@@ -54,10 +53,6 @@ int main( void ) {
     std::cout << "POST: " << da << std::endl;
 
 	intel_driver::Unload( iqvw64e_device_handle );
-
-	std::cout << "PRE: " << da3 << std::endl;
-	Memory::Write( &da3, &da2, 4 );
-	std::cout << "POST: " << da3 << std::endl;
 
 	Overlay::CDrawer d{ Overlay::CreateOverlayWindow( ), FindWindowA( NULL, "Steam" ) };
 
@@ -70,16 +65,18 @@ int main( void ) {
 
 	//LoadCheatModule( Overlay::m_pVisualCallback );
 
-	//if ( !Game::Init( ) )
-	//	goto END;
+	if ( !Game::Init( ) )
+		goto END;
 
-	for ( auto start = std::chrono::steady_clock::now( ), now = start; now < start + std::chrono::seconds{ 5 }; now = std::chrono::steady_clock::now( ) ) {
+	for ( auto start = std::chrono::steady_clock::now( ), now = start; 
+		now < start + std::chrono::seconds{ 5 }; 
+		now = std::chrono::steady_clock::now( ) ) {
 
 	}
 
 	//while ( true ) { };
 
-//END:
+END:
 	Memory::UnloadDriver( );
 
     return 0;

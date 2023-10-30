@@ -9,6 +9,7 @@ struct DataRequest_t {
 enum {
     REQUEST_READ,
     REQUEST_WRITE,
+    REQUEST_GET_MODULE_BASE
 };
 
 struct CommsParse_t {

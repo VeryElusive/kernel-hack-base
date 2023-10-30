@@ -1,5 +1,6 @@
 #pragma once
 #include "../context.h"
+#include <iostream>
 
 // TODO: test performance of this cuz it could be poor due to timing issues (doubt)
 
@@ -29,9 +30,16 @@ namespace Memory {
         return ret;
     }
 
-    inline void* GetModuleBase( const char* moduleName ) {
-        // TODO:
-        return 0;
+    inline void* GetModuleBase( const wchar_t* moduleName ) {
+        void* buf{ };
+        Context::CommunicationBuffer.m_iType = REQUEST_GET_MODULE_BASE;
+        Context::CommunicationBuffer.m_pAddress = const_cast< wchar_t* >( moduleName );
+        Context::CommunicationBuffer.m_pBuffer = &buf;
+        Context::CommunicationBuffer.m_nSize = lstrlenW( moduleName );
+
+        while ( Context::CommunicationBuffer.m_iType != 0 ) { };
+
+        return buf;
     }
 
     inline void UnloadDriver( ) {

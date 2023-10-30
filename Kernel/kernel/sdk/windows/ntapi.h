@@ -47,3 +47,10 @@ PVOID
 PsGetProcessSectionBaseAddress(
 	__in PEPROCESS Process
 );
+
+extern "C"
+NTKERNELAPI
+PPEB
+PsGetProcessPeb(
+	IN PEPROCESS Process
+);
