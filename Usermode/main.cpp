@@ -7,13 +7,48 @@
 
 #include "game (TEMP MOVE THIS TO DLL)/esp.h"
 
+#include <TlHelp32.h>
+#include <string>
+
 int da2{ 420 };
 int da{ 0 };
 
 HANDLE iqvw64e_device_handle;
 
+DWORD GetProcessIdByName( const std::string& _processName )
+{
+	HANDLE snapshot = CreateToolhelp32Snapshot( TH32CS_SNAPPROCESS, NULL );
+
+	if ( snapshot == INVALID_HANDLE_VALUE )
+		return 0;
+
+	PROCESSENTRY32 processEntry;
+	processEntry.dwSize = sizeof( PROCESSENTRY32 );
+
+	if ( !Process32First( snapshot, &processEntry ) )
+	{
+		CloseHandle( snapshot );
+		return 0;
+	}
+
+	do
+	{
+		if ( !_processName.compare( processEntry.szExeFile ) )
+		{
+			CloseHandle( snapshot );
+			return processEntry.th32ProcessID;
+		}
+	} while ( Process32Next( snapshot, &processEntry ) );
+
+	CloseHandle( snapshot );
+	return 0;
+}
+
 void Initialise( ) {
-	Context::Comms.m_pGameProcessId = GetCurrentProcessId( );
+	Context::Comms.m_pGameProcessId = GetProcessIdByName( "Dbgview.exe" );
+	if ( !Context::Comms.m_pGameProcessId )
+		printf( "fail lol\n" );
+
 	Context::Comms.m_pClientProcessId = GetCurrentProcessId( );
 	//Context::Comms.m_iSignage = 0xFADED;
 	Context::Comms.m_pBuffer = &Context::CommunicationBuffer;
@@ -37,7 +72,7 @@ void Initialise( ) {
 }
 
 void __cdecl VisualCallback( Overlay::CDrawer* d ) {
-	Features::Visuals.Main( d );
+	//Features::Visuals.Main( d );
 
 	d->RoundedRectFilled( { 300,100 }, { 200,100 }, Color( 255, 90, 180 ), 5.f );
 
@@ -48,13 +83,18 @@ int main( ) {
 	std::thread init( Initialise );
 	init.detach( );
 
-    std::cout << "PRE: " << da << std::endl;
-    Memory::Write( &da, &da2, 4 );
-    std::cout << "POST: " << da << std::endl;
+    //std::cout << "PRE: " << da << std::endl;
+    //Memory::Write( &da, &da2, 8 );
+    //std::cout << "POST: " << da << std::endl;
+
+	Memory::WaitForDriver( );
 
 	intel_driver::Unload( iqvw64e_device_handle );
 
-	Overlay::CDrawer d{ Overlay::CreateOverlayWindow( ), FindWindowA( NULL, "Steam" ) };
+	if ( !Context::Comms.m_pGameProcessId )
+		return 0;
+
+	Overlay::CDrawer d{ Overlay::CreateOverlayWindow( ), FindWindowA( NULL, "DebugView on \\DESKTOP-T024V1V (local)" ) };
 
 	std::thread overlay{ Overlay::Main, &d };
 	overlay.detach( );

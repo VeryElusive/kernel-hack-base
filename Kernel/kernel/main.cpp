@@ -15,47 +15,86 @@
 
 #define DEBUG_PRINT( msg, ... ) DbgPrintEx( 0, 0, msg, __VA_ARGS__ );
 
-UNICODE_STRING ConvertToUnicodeString( const wchar_t* wcharArray, int size ) {
+#define GET_ADDRESS_OF_FIELD(address, type, field) reinterpret_cast< void* >((type *)( \
+                                                  (PCHAR)(address) + \
+                                                  (ULONG_PTR)(&((type *)0)->field)))
+
+UNICODE_STRING ConvertToUnicodeString( const wchar_t* wcharArray ) {
     UNICODE_STRING unicodeString;
     RtlInitUnicodeString( &unicodeString, wcharArray );
     return unicodeString;
 }
 
-// only for x64
-inline void* GetModuleBase( CommsParse_t* comms, UNICODE_STRING moduleMame ) {
-    PEPROCESS proc{ };
-    if ( !comms )
-        return nullptr;
-
-    if ( PsLookupProcessByProcessId( reinterpret_cast< HANDLE >( comms->m_pGameProcessId ), &proc ) != STATUS_SUCCESS || !proc )
-        return nullptr;
-
-    const PPEB pPeb{ PsGetProcessPeb( proc ) };
-    if ( !pPeb )
-        return NULL;
-
-    KAPC_STATE state;
-
-    KeStackAttachProcess( proc, &state );
-
-    PPEB_LDR_DATA pLdr{ ( PPEB_LDR_DATA ) pPeb->Ldr };
-
-    if ( !pLdr ) {
-        KeUnstackDetachProcess( &state );
-        return NULL;
-    }
-
-    for ( PLIST_ENTRY list = ( PLIST_ENTRY ) pLdr->ModuleListLoadOrder.Flink; list != &pLdr->ModuleListLoadOrder; list = ( PLIST_ENTRY ) list->Flink ) {
-        PLDR_DATA_TABLE_ENTRY pEntry = CONTAINING_RECORD( list, LDR_DATA_TABLE_ENTRY, InLoadOrderModuleList );
-
-        if ( RtlCompareUnicodeString( &pEntry->BaseDllName, &moduleMame, TRUE ) == NULL ) {
-            void* baseAddr = pEntry->DllBase;
-            KeUnstackDetachProcess( &state );
-            return baseAddr;
+void PrintUnicodeString( UNICODE_STRING unicodeString ) {
+    if ( unicodeString.Buffer ) {
+        char narrowString[ MAX_PATH ];
+        int i;
+        for ( i = 0; i < 64; i++ ) {
+            narrowString[ i ] = static_cast< char >( unicodeString.Buffer[ i ] & 0xFF );
         }
+        narrowString[ i ] = '\0';
+        DEBUG_PRINT( "UNICODE_STRING: %s\n", narrowString );
+    }
+}
+
+
+// only for x64
+inline void* GetModuleBase( CommsParse_t* comms, UNICODE_STRING moduleName ) {
+    PEPROCESS proc{ };
+    if ( !comms ) {
+        DEBUG_PRINT( "comms fail.\n" );
+        return nullptr;
     }
 
-    KeUnstackDetachProcess( &state );
+    if ( PsLookupProcessByProcessId( reinterpret_cast< HANDLE >( comms->m_pGameProcessId ), &proc ) != STATUS_SUCCESS || !proc ) {
+        DEBUG_PRINT( "PsLookupProcessByProcessId fail.\n" );
+        return nullptr;
+    }
+
+    SIZE_T read;
+
+    PPEB PEB = 0;
+    Memory::ReadProcessMemory( reinterpret_cast< HANDLE >( comms->m_pGameProcessId ), reinterpret_cast< void* >( reinterpret_cast< uintptr_t >( proc ) + 0x550 ), &PEB, 8, &read );
+    
+    PPEB_LDR_DATA PEB_Ldr = 0;
+    Memory::ReadProcessMemory( reinterpret_cast< HANDLE >( comms->m_pGameProcessId ), GET_ADDRESS_OF_FIELD( PEB, _PEB, Ldr ), &PEB_Ldr, 8, &read );
+
+    LIST_ENTRY ModuleListLoadOrder;
+    Memory::ReadProcessMemory( reinterpret_cast< HANDLE >( comms->m_pGameProcessId ), GET_ADDRESS_OF_FIELD( PEB_Ldr, PEB_LDR_DATA, ModuleListLoadOrder ), &ModuleListLoadOrder, sizeof( ModuleListLoadOrder ), &read );
+
+    DEBUG_PRINT( "searching for module %wZ\n", moduleName );
+
+    int count = 0;
+    PLIST_ENTRY list{ ModuleListLoadOrder.Flink };
+    while ( list != reinterpret_cast< void* >( reinterpret_cast< uintptr_t >( PEB_Ldr ) + 0xD ) && count < 99 ) {
+        // CONTAINING_RECORD expansion:
+        //const auto test = ( ( LDR_DATA_TABLE_ENTRY* ) ( ( PCHAR ) ( list ) -( ULONG_PTR ) ( &( ( LDR_DATA_TABLE_ENTRY* ) 0 )->InLoadOrderModuleList )));
+        PLDR_DATA_TABLE_ENTRY entry;
+        Memory::ReadProcessMemory( reinterpret_cast< HANDLE >( comms->m_pGameProcessId ), CONTAINING_RECORD( list, LDR_DATA_TABLE_ENTRY, InLoadOrderModuleList ), &entry, sizeof( entry ), &read );
+
+        UNICODE_STRING mod;
+        Memory::ReadProcessMemory( reinterpret_cast< HANDLE >( comms->m_pGameProcessId ), GET_ADDRESS_OF_FIELD( entry, LDR_DATA_TABLE_ENTRY, BaseDllName ), &mod, sizeof( mod ), &read );
+
+        WCHAR pbModName[ 64 ] = { 0 };
+        Memory::ReadProcessMemory( reinterpret_cast< HANDLE >( comms->m_pGameProcessId ), mod.Buffer, &pbModName, sizeof( pbModName ), &read );
+
+        mod.Buffer = reinterpret_cast< PWCH >( pbModName );
+        PrintUnicodeString( mod );
+
+        if ( RtlCompareUnicodeString( &mod, &moduleName, TRUE ) == NULL ) {
+            DEBUG_PRINT( "found.\n" );
+            break;
+        }
+
+        //list->Flink
+        void* next = nullptr;
+        Memory::ReadProcessMemory( reinterpret_cast< HANDLE >( comms->m_pGameProcessId ), GET_ADDRESS_OF_FIELD( list, LIST_ENTRY, Flink ), &next, 8, &read );
+
+        Memory::ReadProcessMemory( reinterpret_cast< HANDLE >( comms->m_pGameProcessId ), next, &list, 8, &read );
+        count++;
+        //break;
+    }
+
     return NULL;
 }
 
@@ -80,13 +119,14 @@ NTSTATUS DriverEntry( CommsParse_t* comms ) {
         if ( Memory::ReadProcessMemory( ( HANDLE ) comms->m_pClientProcessId, comms->m_pBuffer, &req, sizeof( DataRequest_t ), &read ) != STATUS_SUCCESS )
             continue;
 
-        if ( req.m_iType && req.m_pBuffer && req.m_nSize ) {
+        if ( req.m_iType && req.m_nSize ) {
             if ( req.m_nSize == 0xFADED ) {
                 //DEBUG_PRINT( "[ HAVOC ] exiting.\n" );
                 break;
             }
 
             char buf[ 32 ]{ };
+            void* base{ };
 
             switch ( req.m_iType ) {
             case REQUEST_READ:
@@ -100,8 +140,12 @@ NTSTATUS DriverEntry( CommsParse_t* comms ) {
             case REQUEST_GET_MODULE_BASE:
                 Memory::ReadProcessMemory( ( HANDLE ) comms->m_pClientProcessId, req.m_pAddress, buf, req.m_nSize * sizeof( wchar_t ), &read );
 
-                void* base{ GetModuleBase( comms, ConvertToUnicodeString( reinterpret_cast< const wchar_t* >( buf ), req.m_nSize ) ) };
-                Memory::WriteProcessMemory( ( HANDLE ) comms->m_pClientProcessId, req.m_pBuffer, base, 8, &read );
+                base = GetModuleBase( comms, ConvertToUnicodeString( reinterpret_cast< const wchar_t* >( buf ) ) );
+                Memory::WriteProcessMemory( ( HANDLE ) comms->m_pClientProcessId, req.m_pBuffer,
+                    &base,
+                    8, &read );
+                break;
+            default:
                 break;
             }
 

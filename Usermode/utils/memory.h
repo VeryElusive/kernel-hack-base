@@ -46,4 +46,15 @@ namespace Memory {
         Context::CommunicationBuffer.m_iType = 0xFADED;
         Context::CommunicationBuffer.m_nSize = 0xFADED;
     }
+
+    inline void WaitForDriver( ) {
+        void* buf{ };
+        Context::CommunicationBuffer.m_iType = 0xFADE;
+        Context::CommunicationBuffer.m_nSize = 0xFADE;
+        Context::CommunicationBuffer.m_pAddress = &buf;
+        Context::CommunicationBuffer.m_pBuffer = &buf;
+
+        while ( Context::CommunicationBuffer.m_iType != 0 ) { };
+        printf( "pass!\n" );
+    }
 }

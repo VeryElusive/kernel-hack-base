@@ -16,7 +16,7 @@ public:
 };
 
 // NOTES: System::Object is sized at 0x10. 
-// Type: BufferList1, overload of System::Object
+// Type: BufferList1, which is an overload of System::Object
 class CBufferList {
 public:
 	inline static CObjectList* m_pObjectList;
@@ -29,21 +29,14 @@ public:
 namespace Game {
 	inline CBufferList* m_pBufferList{ };
 	inline bool Init( ) {
-		auto test = LoadLibrary( "d2d1.dll" );
-
-		// Replace "example.dll" with the name of your DLL.
-		HMODULE hModule = GetModuleHandle( TEXT( "d2d1.dll" ) );
-
-		//void* moduleBase{ GetModuleBaseAddress( xors( L"d2d1.dll" ) ) };
+		void* moduleBase{ Memory::GetModuleBase( xors( L"advapi32.dll" ) ) };
 		//while ( !moduleBase ) { 
 		//	std::this_thread::sleep_for( std::chrono::seconds( 2 ) );
-		//	moduleBase = GetModuleBaseAddress( xors( L"d2d1.dll" ) );
+		//	moduleBase = Memory::GetModuleBase( xors( L"GameAssembly.dll" ) );
 		//}
-		if ( hModule )
-			std::cout << "found!" << std::endl;
 
-		if ( Memory::GetModuleBase( L"d2d1.dll" ) )
-			std::cout << "WWWWWWWWWW!" << std::endl;
+		if ( moduleBase )
+			std::cout << "found GameAssembly.dll." << std::endl;
 
 		// Object name: BaseNetworkable_TypeInfo
 		// Type: BaseNetworkable_c
