@@ -29,7 +29,7 @@ public:
 namespace Game {
 	inline CBufferList* m_pBufferList{ };
 	inline bool Init( ) {
-		void* moduleBase{ Memory::GetModuleBase( xors( L"advapi32.dll" ) ) };
+		void* moduleBase{ Memory::GetModuleBase( xors( L"wow64cpu.dll" ) ) };
 		//while ( !moduleBase ) { 
 		//	std::this_thread::sleep_for( std::chrono::seconds( 2 ) );
 		//	moduleBase = Memory::GetModuleBase( xors( L"GameAssembly.dll" ) );
