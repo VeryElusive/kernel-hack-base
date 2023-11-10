@@ -9,12 +9,13 @@ struct DataRequest_t {
 enum {
     REQUEST_READ,
     REQUEST_WRITE,
+    REQUEST_GET_PID,
     REQUEST_GET_MODULE_BASE
 };
 
 struct CommsParse_t {
     int m_pClientProcessId;
-    int m_pGameProcessId;
+    //wchar_t* m_pGameProcessId;
     //int m_iEntryDeltaFromBase;
     //int m_iDriverSize;
     DataRequest_t* m_pBuffer;

@@ -234,5 +234,12 @@ void CMapper::MapWorkerDriver( HANDLE iqvw64e_device_handle, uint8_t* data, void
 
 	VirtualFree( local_image_base, 0, MEM_RELEASE );
 
-	intel_driver::FreePool( iqvw64e_device_handle, kernel_image_base );
+	auto handle{ intel_driver::Load( ) };
+	if ( handle == INVALID_HANDLE_VALUE )
+		handle = intel_driver::iqvw64e_device_handle;
+
+	intel_driver::FreePool( handle, kernel_image_base );
+
+	intel_driver::Unload( handle );
+	intel_driver::iqvw64e_device_handle = INVALID_HANDLE_VALUE;
 }

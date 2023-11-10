@@ -3,6 +3,12 @@
 #include <ntimage.h>
 #include "../sdk/windows/ntstructs.h"
 
+#define GET_ADDRESS_OF_FIELD(address, type, field) reinterpret_cast< void* >((type *)( \
+                                                  (PCHAR)(address) + \
+                                                  (ULONG_PTR)(&((type *)0)->field)))
+
+#define INVALID_HANDLE ((HANDLE)(LONG_PTR)-1)
+
 namespace Utils {
 	__forceinline CHAR* LowerStr( CHAR* Str ) {
 		for ( CHAR* S = Str; *S; ++S ) {
@@ -84,4 +90,70 @@ namespace Utils {
 
 		return match;
 	}
+
+   /* __forceinline void PrintWideString( const wchar_t* wideString ) {
+        if ( wideString ) {
+            char narrowString[ 64 ];
+            int i;
+            for ( i = 0; i < 63; i++ ) {
+                narrowString[ i ] = static_cast< char >( wideString[ i ] & 0xFF );
+
+                if ( narrowString[ i ] == '\0' )
+                    break;
+            }
+            narrowString[ i ] = '\0';
+            DbgPrintEx( DPFLTR_IHVDRIVER_ID, DPFLTR_ERROR_LEVEL, "Wide string: %s\n", narrowString );
+        }
+    }
+
+#define ImageFileName 0x5A8 // EPROCESS::ImageFileName
+#define ActiveThreads 0x5F0 // EPROCESS::ActiveThreads
+#define ThreadListHead 0x5E0 // EPROCESS::ThreadListHead
+#define ActiveProcessLinks 0x448 // EPROCESS::ActiveProcessLinks
+
+    template <typename str_type, typename str_type_2>
+    __forceinline bool crt_strcmp( str_type str, str_type_2 in_str, bool two )
+    {
+        if ( !str || !in_str )
+            return false;
+
+        wchar_t c1, c2;
+#define to_lower(c_char) ((c_char >= 'A' && c_char <= 'Z') ? (c_char + 32) : c_char)
+
+        do
+        {
+            c1 = *str++; c2 = *in_str++;
+            c1 = to_lower( c1 ); c2 = to_lower( c2 );
+
+            if ( !c1 && ( two ? !c2 : 1 ) )
+                return true;
+
+        } while ( c1 == c2 );
+
+        return false;
+    }
+
+    inline HANDLE GetPIDFromName( const wchar_t* processName ) {
+        CHAR image_name[ 15 ];
+        PEPROCESS sys_process = PsInitialSystemProcess;
+        PEPROCESS cur_entry = sys_process;
+
+        do {
+            RtlCopyMemory( ( PVOID ) ( &image_name ), ( PVOID ) ( ( uintptr_t ) cur_entry + ImageFileName ), sizeof( image_name ) );
+
+            if ( crt_strcmp( image_name, processName, true ) ) {
+                DWORD active_threads;
+                RtlCopyMemory( ( PVOID ) &active_threads, ( PVOID ) ( ( uintptr_t ) cur_entry + ActiveThreads ), sizeof( active_threads ) );
+
+                if ( active_threads )
+                    return PsGetProcessId( cur_entry );
+            }
+
+            PLIST_ENTRY list = ( PLIST_ENTRY ) ( ( uintptr_t ) ( cur_entry ) +ActiveProcessLinks );
+            cur_entry = ( PEPROCESS ) ( ( uintptr_t ) list->Flink - ActiveProcessLinks );
+
+        } while ( cur_entry != sys_process );
+
+        return INVALID_HANDLE;
+    }*/
 }

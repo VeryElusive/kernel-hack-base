@@ -19,6 +19,7 @@ namespace intel_driver
 	constexpr DWORD iqvw64e_timestamp = 0x5284EAC3;
 	extern ULONG64 ntoskrnlAddr;
 	inline uint8_t original_kernel_function[ 12 ];
+	inline HANDLE iqvw64e_device_handle;
 
 	typedef struct _COPY_MEMORY_BUFFER_INFO
 	{
