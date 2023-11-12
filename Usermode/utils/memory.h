@@ -35,7 +35,7 @@ namespace Memory {
         Context::CommunicationBuffer.m_iType = REQUEST_GET_MODULE_BASE;
         Context::CommunicationBuffer.m_pAddress = const_cast< wchar_t* >( moduleName );
         Context::CommunicationBuffer.m_pBuffer = &buf;
-        Context::CommunicationBuffer.m_nSize = lstrlenW( moduleName );
+        Context::CommunicationBuffer.m_nSize = lstrlenW( moduleName ) + 1;
 
         while ( Context::CommunicationBuffer.m_iType != 0 ) { };
 
@@ -48,11 +48,9 @@ namespace Memory {
     }    
     
     inline void WaitForGame( const wchar_t* game ) {
-        void* buf{ };
         Context::CommunicationBuffer.m_iType = REQUEST_GET_PID;
         Context::CommunicationBuffer.m_pAddress = const_cast< wchar_t* >( game );
-        Context::CommunicationBuffer.m_pBuffer = &buf;
-        Context::CommunicationBuffer.m_nSize = lstrlenW( game );
+        Context::CommunicationBuffer.m_nSize = lstrlenW( game ) + 1;
 
         while ( Context::CommunicationBuffer.m_iType != 0 ) { };
     }
@@ -65,6 +63,5 @@ namespace Memory {
         Context::CommunicationBuffer.m_pBuffer = &buf;
 
         while ( Context::CommunicationBuffer.m_iType != 0 ) { };
-        printf( "pass!\n" );
     }
 }

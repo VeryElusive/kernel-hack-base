@@ -7,7 +7,7 @@ struct DataRequest_t {
 };
 
 enum {
-    REQUEST_READ,
+    REQUEST_READ = 1,
     REQUEST_WRITE,
     REQUEST_GET_PID,
     REQUEST_GET_MODULE_BASE

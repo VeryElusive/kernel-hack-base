@@ -241,10 +241,10 @@ bool intel_driver::Unload( HANDLE device_handle ) {
 		randomData[ i ] = ( BYTE ) ( rand( ) % 255 );
 	}
 	if ( !file_ofstream.write( ( char* ) randomData, newFileLen ) ) {
-		//printf( "[!] Error dumping shit inside the disk\n" );
+		printf( "[!] Error dumping shit inside the disk\n" );
 	}
 	else {
-		//printf( "[+] Vul driver data destroyed before unlink\n" );
+		printf( "[+] Vul driver data destroyed before unlink\n" );
 	}
 	file_ofstream.close( );
 	delete[ ] randomData;
@@ -252,6 +252,8 @@ bool intel_driver::Unload( HANDLE device_handle ) {
 	//unlink the file
 	if ( _wremove( driver_path.c_str( ) ) != 0 )
 		return false;
+
+	printf( "unloaded driver!\n" );
 
 	return true;
 }

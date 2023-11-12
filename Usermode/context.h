@@ -6,4 +6,5 @@
 namespace Context {
 	inline DataRequest_t CommunicationBuffer;
 	inline CommsParse_t Comms{ };
+	inline bool ReadyToClose{ };
 }

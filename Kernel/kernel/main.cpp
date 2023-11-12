@@ -21,19 +21,11 @@
 
 #define INVALID_HANDLE ((HANDLE)(LONG_PTR)-1)
 
-void PrintWideString( const wchar_t* wideString ) {
-    if ( wideString ) {
-        char narrowString[ 64 ];
-        int i;
-        for ( i = 0; i < 63; i++ ) {
-            narrowString[ i ] = static_cast< char >( wideString[ i ] & 0xFF );
+inline void Delaynie( ULONG milliseconds ) {
+    LARGE_INTEGER interval;
+    interval.QuadPart = -1 * ( 10000 * milliseconds );  // to 100-nanosecond intervals
 
-            if ( narrowString[ i ] == '\0' )
-                break;
-        }
-        narrowString[ i ] = '\0';
-        DbgPrintEx( DPFLTR_IHVDRIVER_ID, DPFLTR_ERROR_LEVEL, "Wide string: %s\n", narrowString );
-    }
+    KeDelayExecutionThread( KernelMode, FALSE, &interval );
 }
 
 // only for x64
@@ -67,7 +59,7 @@ inline void* GetModuleBase( CommsParse_t* comms, HANDLE gamePID, wchar_t* module
         if ( entry.BaseDllName.Length ) {
             WCHAR modName[ MAX_PATH ] = { 0 };
             Memory::ReadProcessMemory( gamePID, entry.BaseDllName.Buffer, &modName, entry.BaseDllName.Length * sizeof( WCHAR ), &read );
-            PrintWideString( modName );
+            //PrintWideString( modName );
 
             if ( _wcsicmp( modName, moduleName ) == 0 )
                 return entry.DllBase;
@@ -77,60 +69,6 @@ inline void* GetModuleBase( CommsParse_t* comms, HANDLE gamePID, wchar_t* module
     } while ( listHead != list );
 
     return NULL;
-}
-
-#define ImageFileName 0x5A8 // EPROCESS::ImageFileName
-#define ActiveThreads 0x5F0 // EPROCESS::ActiveThreads
-#define ThreadListHead 0x5E0 // EPROCESS::ThreadListHead
-#define ActiveProcessLinks 0x448 // EPROCESS::ActiveProcessLinks
-
-template <typename str_type, typename str_type_2>
-__forceinline bool crt_strcmp( str_type str, str_type_2 in_str, bool two )
-{
-    if ( !str || !in_str )
-        return false;
-
-    wchar_t c1, c2;
-#define to_lower(c_char) ((c_char >= 'A' && c_char <= 'Z') ? (c_char + 32) : c_char)
-
-    do
-    {
-        c1 = *str++; c2 = *in_str++;
-        c1 = to_lower( c1 ); c2 = to_lower( c2 );
-
-        if ( !c1 && ( two ? !c2 : 1 ) )
-            return true;
-
-    } while ( c1 == c2 );
-
-    return false;
-}
-
-inline HANDLE get_process_id_by_name( const wchar_t* process_name )
-{
-    CHAR image_name[ 15 ];
-    PEPROCESS sys_process = PsInitialSystemProcess;
-    PEPROCESS cur_entry = sys_process;
-
-    do
-    {
-        RtlCopyMemory( ( PVOID ) ( &image_name ), ( PVOID ) ( ( uintptr_t ) cur_entry + ImageFileName ), sizeof( image_name ) );
-
-        if ( crt_strcmp( image_name, process_name, true ) )
-        {
-            DWORD active_threads;
-            RtlCopyMemory( ( PVOID ) &active_threads, ( PVOID ) ( ( uintptr_t ) cur_entry + ActiveThreads ), sizeof( active_threads ) );
-
-            if ( active_threads )
-                return PsGetProcessId( cur_entry );
-        }
-
-        PLIST_ENTRY list = ( PLIST_ENTRY ) ( ( uintptr_t ) ( cur_entry ) +ActiveProcessLinks );
-        cur_entry = ( PEPROCESS ) ( ( uintptr_t ) list->Flink - ActiveProcessLinks );
-
-    } while ( cur_entry != sys_process );
-
-    return INVALID_HANDLE;
 }
 
 // this one function can exist solely on the stack. i can safely remove entire driver except this function.
@@ -172,7 +110,8 @@ NTSTATUS DriverEntry( CommsParse_t* comms ) {
             case REQUEST_GET_PID:
                 Memory::ReadProcessMemory( ( HANDLE ) comms->m_pClientProcessId, req.m_pAddress, buf, req.m_nSize * sizeof( wchar_t ), &read );
                 do {
-                    gamePID = get_process_id_by_name( reinterpret_cast< wchar_t* >( buf ) );
+                    gamePID = Utils::GetPIDFromName( reinterpret_cast< wchar_t* >( buf ) );
+                    Delaynie( 500 );
                 } while ( gamePID == INVALID_HANDLE );
                 break;
             case REQUEST_GET_MODULE_BASE:

@@ -16,8 +16,10 @@ void Initialise( ) {
 	Context::Comms.m_pBuffer = &Context::CommunicationBuffer;
 
 	intel_driver::iqvw64e_device_handle = intel_driver::Load( );
-	if ( intel_driver::iqvw64e_device_handle == INVALID_HANDLE_VALUE )
+	if ( intel_driver::iqvw64e_device_handle == INVALID_HANDLE_VALUE ) {
+		printf( "failed to init vuln driver\n" );
 		return;
+	}
 
 	std::vector<uint8_t> raw_image = { 0 };
 	const std::wstring driver_path = L"kernel.sys";// remember to make this load it off server
@@ -27,12 +29,10 @@ void Initialise( ) {
 	}
 
 	Mapper.MapWorkerDriver( intel_driver::iqvw64e_device_handle, raw_image.data( ), &Context::Comms );
-	printf( "unloaded driver!\n" );
 
-	if ( intel_driver::iqvw64e_device_handle != INVALID_HANDLE_VALUE )
-		intel_driver::Unload( intel_driver::iqvw64e_device_handle );
-	else
-		quick_exit( -1 );
+	Sleep( 5000 );
+	
+	Context::ReadyToClose = true;
 }
 
 void __cdecl VisualCallback( Overlay::CDrawer* d ) {
@@ -50,12 +50,17 @@ int main( ) {
 
 	Memory::WaitForDriver( );
 
+	printf( "pass!\n" );
+
+	printf( "open game now\n" );
+
 	intel_driver::Unload( intel_driver::iqvw64e_device_handle );
 
 	/* open game now */
 	Memory::WaitForGame( xors( L"Dbgview.exe" ) );
 
 	printf( "lessgo\n" );
+	Sleep( 5000 );
 
 	//Overlay::CDrawer d{ Overlay::CreateOverlayWindow( ), FindWindowA( NULL, "Rust" ) };
 
@@ -66,19 +71,18 @@ int main( ) {
 
 	//LoadCheatModule( Overlay::m_pVisualCallback );
 
-	if ( !Game::Init( ) )
-		goto END;
+	//if ( !Game::Init( ) )
+	//	goto END;
 
-	for ( auto start = std::chrono::steady_clock::now( ), now = start; 
-		now < start + std::chrono::seconds{ 5 }; 
-		now = std::chrono::steady_clock::now( ) ) {
+	//while ( true ) { };*/
 
-	}
-
-	//while ( true ) { };
 
 END:
 	Memory::UnloadDriver( );
+
+	while ( !Context::ReadyToClose ) { }
+
+	exit( 1 );
 
     return 0;
 }

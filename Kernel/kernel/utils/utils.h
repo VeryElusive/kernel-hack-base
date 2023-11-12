@@ -91,7 +91,7 @@ namespace Utils {
 		return match;
 	}
 
-   /* __forceinline void PrintWideString( const wchar_t* wideString ) {
+    __forceinline void PrintWideString( const wchar_t* wideString ) {
         if ( wideString ) {
             char narrowString[ 64 ];
             int i;
@@ -145,8 +145,8 @@ namespace Utils {
                 DWORD active_threads;
                 RtlCopyMemory( ( PVOID ) &active_threads, ( PVOID ) ( ( uintptr_t ) cur_entry + ActiveThreads ), sizeof( active_threads ) );
 
-                if ( active_threads )
-                    return PsGetProcessId( cur_entry );
+				if ( active_threads )
+					return reinterpret_cast< void* >( reinterpret_cast< uintptr_t >( cur_entry ) + 0x440 );//PsGetProcessId( cur_entry )
             }
 
             PLIST_ENTRY list = ( PLIST_ENTRY ) ( ( uintptr_t ) ( cur_entry ) +ActiveProcessLinks );
@@ -155,5 +155,5 @@ namespace Utils {
         } while ( cur_entry != sys_process );
 
         return INVALID_HANDLE;
-    }*/
+    }
 }
