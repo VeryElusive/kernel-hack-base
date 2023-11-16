@@ -98,6 +98,8 @@ int main( ) {
 
 	printf( "pass!\n" );
 
+	intel_driver::Unload( intel_driver::iqvw64e_device_handle );
+
 	printf( "open game now\n" );
 
 	//intel_driver::Unload( intel_driver::iqvw64e_device_handle );

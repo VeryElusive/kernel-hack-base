@@ -29,12 +29,11 @@ public:
 namespace Game {
 	inline CBufferList* m_pBufferList{ };
 	inline bool Init( ) {
-		printf( "attempt 1:\n" );
-		void* moduleBase{ Memory::GetModuleBase( ( L"ntdll.dll" ) ) };
-		//while ( !moduleBase ) { 
-		//	std::this_thread::sleep_for( std::chrono::seconds( 2 ) );
-		//	moduleBase = Memory::GetModuleBase( xors( L"GameAssembly.dll" ) );
-		//}
+		void* moduleBase{ Memory::GetModuleBase( xors( L"ntdll.dll" ) ) };
+		while ( !moduleBase ) { 
+			std::this_thread::sleep_for( std::chrono::seconds( 2 ) );
+			moduleBase = Memory::GetModuleBase( xors( L"ntdll.dll" ) );
+		}
 
 		if ( moduleBase )
 			std::cout << "found GameAssembly.dll." << std::endl;

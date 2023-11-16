@@ -48,39 +48,23 @@ inline void* GetModuleBase( HANDLE gamePID, wchar_t* moduleName ) {
     LIST_ENTRY ModuleListLoadOrder;
     Memory::ReadProcessMemory( gamePID, GET_ADDRESS_OF_FIELD( PEB_Ldr, PEB_LDR_DATA, ModuleListLoadOrder ), &ModuleListLoadOrder, sizeof( ModuleListLoadOrder ), &read );
 
-    //DEBUG_PRINT( "searching for module %s\n", moduleName );
-
     PLIST_ENTRY list{ ModuleListLoadOrder.Flink };
     PLIST_ENTRY listHead{ ModuleListLoadOrder.Flink };
     do {
         LDR_DATA_TABLE_ENTRY entry;
         Memory::ReadProcessMemory( gamePID, CONTAINING_RECORD( list, LDR_DATA_TABLE_ENTRY, InLoadOrderModuleList ), &entry, sizeof( entry ), &read );
 
-        //UNICODE_STRING mod;
-        //Memory::ReadProcessMemory( gamePID, GET_ADDRESS_OF_FIELD( entry, LDR_DATA_TABLE_ENTRY, BaseDllName ), &mod, sizeof( mod ), &read );
-
         WCHAR modName[ MAX_PATH ] = { 0 };
         Memory::ReadProcessMemory( gamePID, entry.BaseDllName.Buffer, &modName, entry.BaseDllName.Length * sizeof( WCHAR ), &read );
 
-        //mod.Buffer = reinterpret_cast< PWCH >( pbModName );
-        //PrintUnicodeString( mod );
         if ( entry.BaseDllName.Length ) {
-            //PrintWideString( modName );
+            //Utils::PrintWideString( modName );
 
-            if ( _wcsicmp( modName, moduleName ) == 0 ) {
-                DEBUG_PRINT( "found.\n" );
+            if ( _wcsicmp( modName, moduleName ) == 0 )
                 return entry.DllBase;
-            }
         }
 
         list = entry.InLoadOrderModuleList.Flink;
-
-        //list->Flink
-        //void* next = nullptr;
-       // Memory::ReadProcessMemory( gamePID, GET_ADDRESS_OF_FIELD( list, LIST_ENTRY, Flink ), &next, sizeof( next ), &read );
-
-        //Memory::ReadProcessMemory( gamePID, next, &list, sizeof( list ), &read );
-        //break;
     } while ( listHead != list );
 
     return NULL;

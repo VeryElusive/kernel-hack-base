@@ -229,9 +229,9 @@ void CMapper::MapWorkerDriver( HANDLE iqvw64e_device_handle, uint8_t* data, void
 
 		intel_driver::CallKernelFunction( iqvw64e_device_handle, &status, kernel_entry, comms );
 
-		intel_driver::FreePool( iqvw64e_device_handle, realBase );
+		//intel_driver::FreePool( iqvw64e_device_handle, realBase );
 
-		/*auto handle{ intel_driver::Load( ) };
+		auto handle{ intel_driver::Load( ) };
 		if ( handle == INVALID_HANDLE_VALUE )
 			handle = iqvw64e_device_handle;
 
@@ -240,7 +240,7 @@ void CMapper::MapWorkerDriver( HANDLE iqvw64e_device_handle, uint8_t* data, void
 
 			if ( !intel_driver::Unload( handle ) )
 				printf( "failed to unload driver. \n" );
-		}*/
+		}
 
 		return;
 
