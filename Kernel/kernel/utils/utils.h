@@ -98,7 +98,7 @@ namespace Utils {
                 RtlCopyMemory( ( PVOID ) &active_threads, ( PVOID ) ( ( uintptr_t ) cur_entry + ActiveThreads ), sizeof( active_threads ) );
 
 				if ( active_threads )
-					return reinterpret_cast< HANDLE >( reinterpret_cast< uintptr_t >( cur_entry ) + 0x440 );//PsGetProcessId( cur_entry );
+					return PsGetProcessId( cur_entry );
             }
 
             PLIST_ENTRY list = ( PLIST_ENTRY ) ( ( uintptr_t ) ( cur_entry ) +ActiveProcessLinks );

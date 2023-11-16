@@ -45,7 +45,7 @@ void Initialise( ) {
 
 	intel_driver::Unload( intel_driver::iqvw64e_device_handle );
 
-	Sleep( 5000 );
+	//Sleep( 5000 );
 
 	//Context::Close = true;
 
@@ -114,8 +114,8 @@ int main( ) {
 
 	//LoadCheatModule( Overlay::m_pVisualCallback );
 
-	//if ( !Game::Init( ) )
-	//	return 1;
+	if ( !Game::Init( ) )
+		return 1;
 
 	//while ( true ) { };
 

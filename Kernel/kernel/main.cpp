@@ -29,19 +29,19 @@ inline void Delaynie( ULONG milliseconds ) {
 }
 
 // only for x64
-inline void* GetModuleBase( CommsParse_t* comms, HANDLE gamePID, wchar_t* moduleName ) {
+inline void* GetModuleBase( HANDLE gamePID, wchar_t* moduleName ) {
     SIZE_T read;
 
     PEPROCESS proc{ };
-    if ( !comms )
-        return nullptr;
 
-    if ( PsLookupProcessByProcessId( gamePID, &proc ) != STATUS_SUCCESS || !proc )
+    if ( PsLookupProcessByProcessId( gamePID, &proc ) != STATUS_SUCCESS || !proc ) {
+        DEBUG_PRINT( "PsLookupProcessByProcessId fail.\n" );
         return nullptr;
+    }
 
     PPEB PEB = 0;
     Memory::ReadProcessMemory( gamePID, reinterpret_cast< void* >( reinterpret_cast< uintptr_t >( proc ) + 0x550 ), &PEB, 8, &read );
-    
+
     PPEB_LDR_DATA PEB_Ldr = 0;
     Memory::ReadProcessMemory( gamePID, GET_ADDRESS_OF_FIELD( PEB, _PEB, Ldr ), &PEB_Ldr, 8, &read );
 
@@ -56,20 +56,36 @@ inline void* GetModuleBase( CommsParse_t* comms, HANDLE gamePID, wchar_t* module
         LDR_DATA_TABLE_ENTRY entry;
         Memory::ReadProcessMemory( gamePID, CONTAINING_RECORD( list, LDR_DATA_TABLE_ENTRY, InLoadOrderModuleList ), &entry, sizeof( entry ), &read );
 
+        //UNICODE_STRING mod;
+        //Memory::ReadProcessMemory( gamePID, GET_ADDRESS_OF_FIELD( entry, LDR_DATA_TABLE_ENTRY, BaseDllName ), &mod, sizeof( mod ), &read );
+
+        WCHAR modName[ MAX_PATH ] = { 0 };
+        Memory::ReadProcessMemory( gamePID, entry.BaseDllName.Buffer, &modName, entry.BaseDllName.Length * sizeof( WCHAR ), &read );
+
+        //mod.Buffer = reinterpret_cast< PWCH >( pbModName );
+        //PrintUnicodeString( mod );
         if ( entry.BaseDllName.Length ) {
-            WCHAR modName[ MAX_PATH ] = { 0 };
-            Memory::ReadProcessMemory( gamePID, entry.BaseDllName.Buffer, &modName, entry.BaseDllName.Length * sizeof( WCHAR ), &read );
             //PrintWideString( modName );
 
-            if ( _wcsicmp( modName, moduleName ) == 0 )
+            if ( _wcsicmp( modName, moduleName ) == 0 ) {
+                DEBUG_PRINT( "found.\n" );
                 return entry.DllBase;
+            }
         }
 
         list = entry.InLoadOrderModuleList.Flink;
+
+        //list->Flink
+        //void* next = nullptr;
+       // Memory::ReadProcessMemory( gamePID, GET_ADDRESS_OF_FIELD( list, LIST_ENTRY, Flink ), &next, sizeof( next ), &read );
+
+        //Memory::ReadProcessMemory( gamePID, next, &list, sizeof( list ), &read );
+        //break;
     } while ( listHead != list );
 
     return NULL;
 }
+
 
 // this one function can exist solely on the stack. i can safely remove entire driver except this function.
 NTSTATUS DriverEntry( CommsParse_t* comms ) {
@@ -119,7 +135,7 @@ NTSTATUS DriverEntry( CommsParse_t* comms ) {
             case REQUEST_GET_MODULE_BASE:
                 Memory::ReadProcessMemory( comms->m_pClientProcessId, req.m_pAddress, buf, req.m_nSize * sizeof( wchar_t ), &read );
 
-                base = GetModuleBase( comms, gamePID, reinterpret_cast< wchar_t* >( buf ) );
+                base = GetModuleBase( gamePID, reinterpret_cast< wchar_t* >( buf ) );
                 Memory::WriteProcessMemory( comms->m_pClientProcessId, req.m_pBuffer,
                     &base, 8, &read );
                 break;
