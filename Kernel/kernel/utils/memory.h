@@ -17,38 +17,38 @@ using uint8_t = char;
 #define PMASK ( ~0xfull << 8 ) & 0xfffffffffull
 
 namespace Memory {
-	__forceinline PVOID GetProcessBaseAddress( HANDLE pid );
+	PVOID GetProcessBaseAddress( HANDLE pid );
 
-	__forceinline DWORD GetUserDirectoryTableBaseOffset( );
+	DWORD GetUserDirectoryTableBaseOffset( );
 
 	//check normal dirbase if 0 then get from UserDirectoryTableBas
-	__forceinline ULONG_PTR GetProcessCr3( PEPROCESS pProcess );
-	__forceinline ULONG_PTR GetKernelDirBase( );
+	ULONG_PTR GetProcessCr3( PEPROCESS pProcess );
+	ULONG_PTR GetKernelDirBase( );
 
-	__forceinline NTSTATUS ReadVirtual( uint64_t dirbase, uint64_t address, uint8_t* buffer, SIZE_T size, SIZE_T* read );
+	NTSTATUS ReadVirtual( uint64_t dirbase, uint64_t address, uint8_t* buffer, SIZE_T size, SIZE_T* read );
 
-	__forceinline NTSTATUS WriteVirtual( uint64_t dirbase, uint64_t address, uint8_t* buffer, SIZE_T size, SIZE_T* written );
+	NTSTATUS WriteVirtual( uint64_t dirbase, uint64_t address, uint8_t* buffer, SIZE_T size, SIZE_T* written );
 
-	__forceinline NTSTATUS ReadPhysicalAddress( PVOID TargetAddress, PVOID lpBuffer, SIZE_T Size, SIZE_T* BytesRead );
+	NTSTATUS ReadPhysicalAddress( PVOID TargetAddress, PVOID lpBuffer, SIZE_T Size, SIZE_T* BytesRead );
 
 	//MmMapIoSpaceEx limit is page 4096 byte
-	__forceinline NTSTATUS WritePhysicalAddress( PVOID TargetAddress, PVOID lpBuffer, SIZE_T Size, SIZE_T* BytesWritten );
+	NTSTATUS WritePhysicalAddress( PVOID TargetAddress, PVOID lpBuffer, SIZE_T Size, SIZE_T* BytesWritten );
 
-	__forceinline uint64_t TranslateLinearAddress( uint64_t directoryTableBase, uint64_t virtualAddress );
+	uint64_t TranslateLinearAddress( uint64_t directoryTableBase, uint64_t virtualAddress );
 
 
 	//
-	__forceinline NTSTATUS ReadProcessMemory( HANDLE pid, PVOID Address, PVOID AllocatedBuffer, SIZE_T size, SIZE_T* read );
+	NTSTATUS ReadProcessMemory( HANDLE pid, PVOID Address, PVOID AllocatedBuffer, SIZE_T size, SIZE_T* read );
 
-	__forceinline NTSTATUS WriteProcessMemory( HANDLE pid, PVOID Address, PVOID AllocatedBuffer, SIZE_T size, SIZE_T* written );
+	NTSTATUS WriteProcessMemory( HANDLE pid, PVOID Address, PVOID AllocatedBuffer, SIZE_T size, SIZE_T* written );
 
-	__forceinline void memcpyINLINED( unsigned char* dest, const unsigned char* src, size_t size ) {
+	void memcpyINLINED( unsigned char* dest, const unsigned char* src, size_t size ) {
 		for ( size_t i = 0; i < size; ++i ) {
 			dest[ i ] = src[ i ];
 		}
 	}
 
-	__forceinline PVOID GetProcessBaseAddress( HANDLE pid ) {
+	PVOID GetProcessBaseAddress( HANDLE pid ) {
 		PEPROCESS pProcess = NULL;
 		if ( pid == 0 )
 			return 0;
@@ -62,7 +62,7 @@ namespace Memory {
 		return Base;
 	}
 
-	__forceinline DWORD GetUserDirectoryTableBaseOffset( )
+	DWORD GetUserDirectoryTableBaseOffset( )
 	{
 		RTL_OSVERSIONINFOW ver = { 0 };
 		RtlGetVersion( &ver );
@@ -96,7 +96,7 @@ namespace Memory {
 	}
 
 	//check normal dirbase if 0 then get from UserDirectoryTableBas
-	__forceinline ULONG_PTR GetProcessCr3( PEPROCESS pProcess )
+	ULONG_PTR GetProcessCr3( PEPROCESS pProcess )
 	{
 		PUCHAR process = ( PUCHAR ) pProcess;
 		ULONG_PTR process_dirbase = *( PULONG_PTR ) ( process + 0x28 ); //dirbase x64, 32bit is 0x18
@@ -108,26 +108,26 @@ namespace Memory {
 		}
 		return process_dirbase;
 	}
-	__forceinline ULONG_PTR GetKernelDirBase( )
+	ULONG_PTR GetKernelDirBase( )
 	{
 		PUCHAR process = ( PUCHAR ) PsGetCurrentProcess( );
 		ULONG_PTR cr3 = *( PULONG_PTR ) ( process + 0x28 ); //dirbase x64, 32bit is 0x18
 		return cr3;
 	}
 
-	__forceinline NTSTATUS ReadVirtual( uint64_t dirbase, uint64_t address, uint8_t* buffer, SIZE_T size, SIZE_T* read )
+	NTSTATUS ReadVirtual( uint64_t dirbase, uint64_t address, uint8_t* buffer, SIZE_T size, SIZE_T* read )
 	{
 		uint64_t paddress = TranslateLinearAddress( dirbase, address );
 		return ReadPhysicalAddress( reinterpret_cast< PVOID >( paddress ), buffer, size, read );
 	}
 
-	__forceinline NTSTATUS WriteVirtual( uint64_t dirbase, uint64_t address, uint8_t* buffer, SIZE_T size, SIZE_T* written )
+	NTSTATUS WriteVirtual( uint64_t dirbase, uint64_t address, uint8_t* buffer, SIZE_T size, SIZE_T* written )
 	{
 		uint64_t paddress = TranslateLinearAddress( dirbase, address );
 		return WritePhysicalAddress( reinterpret_cast< PVOID >( paddress ), buffer, size, written );
 	}
 
-	__forceinline NTSTATUS ReadPhysicalAddress( PVOID TargetAddress, PVOID lpBuffer, SIZE_T Size, SIZE_T* BytesRead )
+	NTSTATUS ReadPhysicalAddress( PVOID TargetAddress, PVOID lpBuffer, SIZE_T Size, SIZE_T* BytesRead )
 	{
 		MM_COPY_ADDRESS AddrToRead = { 0 };
 		AddrToRead.PhysicalAddress.QuadPart = reinterpret_cast< LONGLONG >( TargetAddress );
@@ -135,7 +135,7 @@ namespace Memory {
 	}
 
 	//MmMapIoSpaceEx limit is page 4096 byte
-	__forceinline NTSTATUS WritePhysicalAddress( PVOID TargetAddress, PVOID lpBuffer, SIZE_T Size, SIZE_T* BytesWritten )
+	NTSTATUS WritePhysicalAddress( PVOID TargetAddress, PVOID lpBuffer, SIZE_T Size, SIZE_T* BytesWritten )
 	{
 		if ( !TargetAddress )
 			return STATUS_UNSUCCESSFUL;
@@ -157,7 +157,7 @@ namespace Memory {
 		return STATUS_SUCCESS;
 	}
 
-	__forceinline uint64_t TranslateLinearAddress( uint64_t directoryTableBase, uint64_t virtualAddress ) {
+	uint64_t TranslateLinearAddress( uint64_t directoryTableBase, uint64_t virtualAddress ) {
 		directoryTableBase &= ~0xf;
 
 		uint64_t pageOffset = virtualAddress & ~( ~0ul << PAGE_OFFSET_SIZE );
@@ -202,7 +202,7 @@ namespace Memory {
 
 
 	//
-	__forceinline NTSTATUS ReadProcessMemory( HANDLE pid, PVOID Address, PVOID AllocatedBuffer, SIZE_T size, SIZE_T* read )
+	NTSTATUS ReadProcessMemory( HANDLE pid, PVOID Address, PVOID AllocatedBuffer, SIZE_T size, SIZE_T* read )
 	{
 		PEPROCESS pProcess = NULL;
 		if ( pid == 0 ) return STATUS_UNSUCCESSFUL;
@@ -234,7 +234,7 @@ namespace Memory {
 		return NtRet;
 	}
 
-	__forceinline NTSTATUS WriteProcessMemory( HANDLE pid, PVOID Address, PVOID AllocatedBuffer, SIZE_T size, SIZE_T* written )
+	NTSTATUS WriteProcessMemory( HANDLE pid, PVOID Address, PVOID AllocatedBuffer, SIZE_T size, SIZE_T* written )
 	{
 		PEPROCESS pProcess = NULL;
 		if ( pid == 0 ) return STATUS_UNSUCCESSFUL;

@@ -10,8 +10,20 @@
 #include <TlHelp32.h>
 #include <string>
 
+LONG WINAPI SimplestCrashHandler( EXCEPTION_POINTERS* ExceptionInfo )
+{
+	if ( intel_driver::iqvw64e_device_handle )
+		intel_driver::Unload( intel_driver::iqvw64e_device_handle );
+
+	printf( "crashed.\n" );
+	Sleep( 5000 );
+
+	return EXCEPTION_EXECUTE_HANDLER;
+}
+
+
 void Initialise( ) {
-	Context::Comms.m_pClientProcessId = GetCurrentProcessId( );
+	Context::Comms.m_pClientProcessId = ( HANDLE ) GetCurrentProcessId( );
 	//Context::Comms.m_iSignage = 0xFADED;
 	Context::Comms.m_pBuffer = &Context::CommunicationBuffer;
 
@@ -22,17 +34,22 @@ void Initialise( ) {
 	}
 
 	std::vector<uint8_t> raw_image = { 0 };
-	const std::wstring driver_path = L"kernel.sys";// remember to make this load it off server
+	const std::wstring driver_path = L"kernel.sys";
 	if ( !Utils::ReadFileToMemory( driver_path, &raw_image ) ) {
 		intel_driver::Unload( intel_driver::iqvw64e_device_handle );
 		return;
 	}
 
+	// remember to make this load it off server
 	Mapper.MapWorkerDriver( intel_driver::iqvw64e_device_handle, raw_image.data( ), &Context::Comms );
 
+	intel_driver::Unload( intel_driver::iqvw64e_device_handle );
+
 	Sleep( 5000 );
-	
-	Context::ReadyToClose = true;
+
+	//Context::Close = true;
+
+	std::exit( 0 );
 }
 
 void __cdecl VisualCallback( Overlay::CDrawer* d ) {
@@ -43,10 +60,39 @@ void __cdecl VisualCallback( Overlay::CDrawer* d ) {
 	d->RectFilled( { 0,100 }, { 200,100 }, Color( 100, 255, 255 ) );
 }
 
+void CloseApplication( ) {
+	Memory::UnloadDriver( );
+
+	//intel_driver::Unload( intel_driver::iqvw64e_device_handle );
+	//Sleep( 3000 );
+
+	while ( true ) { };
+
+	//while ( !Context::Close ) { };
+
+	//std::exit( 0 );  // Terminate the program
+}
+
+BOOL WINAPI ConsoleHandler( DWORD eventType ) {
+	if ( eventType == CTRL_CLOSE_EVENT ) {
+		CloseApplication( );
+		return FALSE;
+	}
+
+	// Return TRUE for events that are handled, FALSE otherwise
+	return TRUE;
+}
 
 int main( ) {
+	SetUnhandledExceptionFilter( SimplestCrashHandler );
+
+	if ( !SetConsoleCtrlHandler( ConsoleHandler, TRUE ) )
+		return 1;
+
 	std::thread init( Initialise );
 	init.detach( );
+
+	printf( "waiting.\n" );
 
 	Memory::WaitForDriver( );
 
@@ -54,35 +100,32 @@ int main( ) {
 
 	printf( "open game now\n" );
 
-	intel_driver::Unload( intel_driver::iqvw64e_device_handle );
+	//intel_driver::Unload( intel_driver::iqvw64e_device_handle );
 
 	/* open game now */
-	Memory::WaitForGame( xors( L"Dbgview.exe" ) );
-
-	printf( "lessgo\n" );
-	Sleep( 5000 );
+	Memory::WaitForGame( xors( "Dbgview.exe" ) );
 
 	//Overlay::CDrawer d{ Overlay::CreateOverlayWindow( ), FindWindowA( NULL, "Rust" ) };
 
 	//std::thread overlay{ Overlay::Main, &d };
 	//overlay.detach( );
 
-	Overlay::m_pVisualCallback = VisualCallback;
+	//Overlay::m_pVisualCallback = VisualCallback;
 
 	//LoadCheatModule( Overlay::m_pVisualCallback );
 
 	//if ( !Game::Init( ) )
-	//	goto END;
+	//	return 1;
 
-	//while ( true ) { };*/
+	//while ( true ) { };
 
+	printf( "w chat\n" );
+	printf( "You can close this window now.\n" );
 
-END:
-	Memory::UnloadDriver( );
+	do {
 
-	while ( !Context::ReadyToClose ) { }
-
-	exit( 1 );
+	}
+	while ( true ); 
 
     return 0;
 }

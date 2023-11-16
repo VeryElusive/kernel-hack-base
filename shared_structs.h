@@ -3,7 +3,7 @@ struct DataRequest_t {
     volatile int m_iType{ };
     void* m_pAddress{ };
     void* m_pBuffer{ };
-    int m_nSize{ };
+    volatile int m_nSize{ };
 };
 
 enum {
@@ -14,7 +14,7 @@ enum {
 };
 
 struct CommsParse_t {
-    int m_pClientProcessId;
+    HANDLE m_pClientProcessId;
     //wchar_t* m_pGameProcessId;
     //int m_iEntryDeltaFromBase;
     //int m_iDriverSize;

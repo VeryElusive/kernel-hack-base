@@ -7,8 +7,6 @@
                                                   (PCHAR)(address) + \
                                                   (ULONG_PTR)(&((type *)0)->field)))
 
-#define INVALID_HANDLE ((HANDLE)(LONG_PTR)-1)
-
 namespace Utils {
 	__forceinline CHAR* LowerStr( CHAR* Str ) {
 		for ( CHAR* S = Str; *S; ++S ) {
@@ -17,38 +15,6 @@ namespace Utils {
 		return Str;
 
 	}
-	__forceinline PVOID GetModuleBaseAddress( PCHAR name ) {
-		PVOID addr = 0;
-
-		ULONG size = 0;
-		NTSTATUS status = ZwQuerySystemInformation( SystemModuleInformation, 0, 0, &size );
-		if ( STATUS_INFO_LENGTH_MISMATCH != status ) {
-			return addr;
-		}
-
-		auto modules{ reinterpret_cast< PSYSTEM_MODULE_INFORMATION >( ExAllocatePool2( POOL_FLAG_NON_PAGED, size, 'HVC' ) ) };
-		if ( !modules ) {
-			return addr;
-		}
-
-		if ( !NT_SUCCESS( status = ZwQuerySystemInformation( SystemModuleInformation, modules, size, 0 ) ) ) {
-			ExFreePool( modules );
-			return addr;
-		}
-
-		for ( ULONG i = 0; i < modules->NumberOfModules; ++i ) {
-			SYSTEM_MODULE m = modules->Modules[ i ];
-
-			if ( strstr( ( PCHAR ) m.FullPathName, name ) ) {
-				addr = m.ImageBase;
-				break;
-			}
-		}
-
-		ExFreePool( modules );
-		return addr;
-	}
-
 
 	__forceinline BOOLEAN CheckMask( PCHAR base, PCHAR pattern, PCHAR mask ) {
 		for ( ; *mask; ++base, ++pattern, ++mask ) {
@@ -106,34 +72,18 @@ namespace Utils {
         }
     }
 
+    __forceinline void PrintString( const CHAR* str ) {
+        if ( str ) {
+            DbgPrintEx( DPFLTR_IHVDRIVER_ID, DPFLTR_ERROR_LEVEL, "Str: %s\n", str );
+        }
+    }
+
 #define ImageFileName 0x5A8 // EPROCESS::ImageFileName
 #define ActiveThreads 0x5F0 // EPROCESS::ActiveThreads
 #define ThreadListHead 0x5E0 // EPROCESS::ThreadListHead
 #define ActiveProcessLinks 0x448 // EPROCESS::ActiveProcessLinks
 
-    template <typename str_type, typename str_type_2>
-    __forceinline bool crt_strcmp( str_type str, str_type_2 in_str, bool two )
-    {
-        if ( !str || !in_str )
-            return false;
-
-        wchar_t c1, c2;
-#define to_lower(c_char) ((c_char >= 'A' && c_char <= 'Z') ? (c_char + 32) : c_char)
-
-        do
-        {
-            c1 = *str++; c2 = *in_str++;
-            c1 = to_lower( c1 ); c2 = to_lower( c2 );
-
-            if ( !c1 && ( two ? !c2 : 1 ) )
-                return true;
-
-        } while ( c1 == c2 );
-
-        return false;
-    }
-
-    inline HANDLE GetPIDFromName( const wchar_t* processName ) {
+	HANDLE GetPIDFromName( const CHAR* processName ) {
         CHAR image_name[ 15 ];
         PEPROCESS sys_process = PsInitialSystemProcess;
         PEPROCESS cur_entry = sys_process;
@@ -141,12 +91,14 @@ namespace Utils {
         do {
             RtlCopyMemory( ( PVOID ) ( &image_name ), ( PVOID ) ( ( uintptr_t ) cur_entry + ImageFileName ), sizeof( image_name ) );
 
-            if ( crt_strcmp( image_name, processName, true ) ) {
+            PrintString( image_name );
+
+            if ( strcmp( image_name, processName ) ) {
                 DWORD active_threads;
                 RtlCopyMemory( ( PVOID ) &active_threads, ( PVOID ) ( ( uintptr_t ) cur_entry + ActiveThreads ), sizeof( active_threads ) );
 
 				if ( active_threads )
-					return reinterpret_cast< void* >( reinterpret_cast< uintptr_t >( cur_entry ) + 0x440 );//PsGetProcessId( cur_entry )
+					return reinterpret_cast< HANDLE >( reinterpret_cast< uintptr_t >( cur_entry ) + 0x440 );//PsGetProcessId( cur_entry );
             }
 
             PLIST_ENTRY list = ( PLIST_ENTRY ) ( ( uintptr_t ) ( cur_entry ) +ActiveProcessLinks );
@@ -154,6 +106,6 @@ namespace Utils {
 
         } while ( cur_entry != sys_process );
 
-        return INVALID_HANDLE;
+        return 0;
     }
 }

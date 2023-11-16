@@ -81,44 +81,46 @@ NTSTATUS DriverEntry( CommsParse_t* comms ) {
     }
 
     SIZE_T read = 0;
-    HANDLE gamePID{ INVALID_HANDLE };
+    HANDLE gamePID{ 0 };
+
+    DataRequest_t req{ };
+    char buf[ 64 ]{ };
+    void* base{ };
 
     do {
-        DataRequest_t req{ };
-        char buf[ 64 ]{ };
-        void* base{ };
-
         // TODO: make this only init physical addresses once or woteva
-        if ( Memory::ReadProcessMemory( ( HANDLE ) comms->m_pClientProcessId, comms->m_pBuffer, &req, sizeof( DataRequest_t ), &read ) != STATUS_SUCCESS )
+        if ( Memory::ReadProcessMemory( comms->m_pClientProcessId, comms->m_pBuffer, &req, sizeof( DataRequest_t ), &read ) != STATUS_SUCCESS )
             continue;
+
+        memset( buf, '\0', 64 );
 
         if ( req.m_iType && req.m_nSize ) {
             if ( req.m_iType == 0xFADED ) {
                 //DEBUG_PRINT( "[ HAVOC ] exiting.\n" );
-                break;
+                return STATUS_SUCCESS;
             }
 
             switch ( req.m_iType ) {
             case REQUEST_READ:
-                Memory::ReadProcessMemory( ( HANDLE ) gamePID, req.m_pAddress, buf, req.m_nSize, &read );
-                Memory::WriteProcessMemory( ( HANDLE ) comms->m_pClientProcessId, req.m_pBuffer, buf, req.m_nSize, &read );
+                Memory::ReadProcessMemory( gamePID, req.m_pAddress, buf, req.m_nSize, &read );
+                Memory::WriteProcessMemory( comms->m_pClientProcessId, req.m_pBuffer, buf, req.m_nSize, &read );
                 break;
             case REQUEST_WRITE:
-                Memory::ReadProcessMemory( ( HANDLE ) comms->m_pClientProcessId, req.m_pBuffer, buf, req.m_nSize, &read );
-                Memory::WriteProcessMemory( ( HANDLE ) gamePID, req.m_pAddress, buf, req.m_nSize, &read );
+                Memory::ReadProcessMemory( comms->m_pClientProcessId, req.m_pBuffer, buf, req.m_nSize, &read );
+                Memory::WriteProcessMemory( gamePID, req.m_pAddress, buf, req.m_nSize, &read );
                 break;
             case REQUEST_GET_PID:
-                Memory::ReadProcessMemory( ( HANDLE ) comms->m_pClientProcessId, req.m_pAddress, buf, req.m_nSize * sizeof( wchar_t ), &read );
+                Memory::ReadProcessMemory( comms->m_pClientProcessId, req.m_pAddress, buf, req.m_nSize * sizeof( char ), &read );
                 do {
-                    gamePID = Utils::GetPIDFromName( reinterpret_cast< wchar_t* >( buf ) );
+                    gamePID = Utils::GetPIDFromName( reinterpret_cast< char* >( buf ) );
                     Delaynie( 500 );
-                } while ( gamePID == INVALID_HANDLE );
+                } while ( gamePID == 0 );
                 break;
             case REQUEST_GET_MODULE_BASE:
-                Memory::ReadProcessMemory( ( HANDLE ) comms->m_pClientProcessId, req.m_pAddress, buf, req.m_nSize * sizeof( wchar_t ), &read );
+                Memory::ReadProcessMemory( comms->m_pClientProcessId, req.m_pAddress, buf, req.m_nSize * sizeof( wchar_t ), &read );
 
                 base = GetModuleBase( comms, gamePID, reinterpret_cast< wchar_t* >( buf ) );
-                Memory::WriteProcessMemory( ( HANDLE ) comms->m_pClientProcessId, req.m_pBuffer,
+                Memory::WriteProcessMemory( comms->m_pClientProcessId, req.m_pBuffer,
                     &base, 8, &read );
                 break;
             default:
@@ -126,7 +128,9 @@ NTSTATUS DriverEntry( CommsParse_t* comms ) {
             }
 
             req.m_iType = 0;
-            Memory::WriteProcessMemory( ( HANDLE ) comms->m_pClientProcessId, comms->m_pBuffer, &req, sizeof( DataRequest_t ), &read );
+            Memory::WriteProcessMemory( comms->m_pClientProcessId, 
+                GET_ADDRESS_OF_FIELD( comms->m_pBuffer, DataRequest_t, m_iType ), 
+                GET_ADDRESS_OF_FIELD( &req, DataRequest_t, m_iType ), sizeof( req.m_iType ), &read );
 
             //DEBUG_PRINT( "[ HAVOC ] wrote to buffer\n" );
         }
