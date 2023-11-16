@@ -87,14 +87,14 @@ namespace Utils {
         CHAR image_name[ 15 ];
         PEPROCESS sys_process = PsInitialSystemProcess;
         PEPROCESS cur_entry = sys_process;
+		DWORD active_threads;
 
         do {
             RtlCopyMemory( ( PVOID ) ( &image_name ), ( PVOID ) ( ( uintptr_t ) cur_entry + ImageFileName ), sizeof( image_name ) );
 
-            PrintString( image_name );
+            //PrintString( image_name );
 
-            if ( strcmp( image_name, processName ) ) {
-                DWORD active_threads;
+            if ( strcmp( image_name, processName ) == 0 ) {
                 RtlCopyMemory( ( PVOID ) &active_threads, ( PVOID ) ( ( uintptr_t ) cur_entry + ActiveThreads ), sizeof( active_threads ) );
 
 				if ( active_threads )
