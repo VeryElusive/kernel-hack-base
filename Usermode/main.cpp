@@ -10,8 +10,9 @@
 #include <TlHelp32.h>
 #include <string>
 
-LONG WINAPI SimplestCrashHandler( EXCEPTION_POINTERS* ExceptionInfo )
-{
+LONG WINAPI SimplestCrashHandler( EXCEPTION_POINTERS* ExceptionInfo ) {
+	UNREFERENCED_PARAMETER( ExceptionInfo );
+
 	if ( intel_driver::iqvw64e_device_handle )
 		intel_driver::Unload( intel_driver::iqvw64e_device_handle );
 
@@ -24,8 +25,9 @@ LONG WINAPI SimplestCrashHandler( EXCEPTION_POINTERS* ExceptionInfo )
 
 void Initialise( ) {
 	Context::Comms.m_pClientProcessId = ( HANDLE ) GetCurrentProcessId( );
-	//Context::Comms.m_iSignage = 0xFADED;
-	Context::Comms.m_pBuffer = &Context::CommunicationBuffer;
+	//Context::Comms.m_pBuffer = &Context::CommunicationBuffer;
+	Context::Comms.m_pBuffer = const_cast< DataRequest_t* >( &Context::CommunicationBuffer );
+
 
 	intel_driver::iqvw64e_device_handle = intel_driver::Load( );
 	if ( intel_driver::iqvw64e_device_handle == INVALID_HANDLE_VALUE ) {
@@ -105,7 +107,7 @@ int main( ) {
 	//intel_driver::Unload( intel_driver::iqvw64e_device_handle );
 
 	/* open game now */
-	Memory::WaitForGame( xors( "Dbgview.exe" ) );
+	Memory::WaitForGame( xors( "RustClient.exe" ) );
 
 	//Overlay::CDrawer d{ Overlay::CreateOverlayWindow( ), FindWindowA( NULL, "Rust" ) };
 
@@ -117,11 +119,10 @@ int main( ) {
 	//LoadCheatModule( Overlay::m_pVisualCallback );
 
 	if ( !Game::Init( ) )
-		return 1;
+		printf( "fail\n" );
+	else
+		printf( "w chat\n" );
 
-	//while ( true ) { };
-
-	printf( "w chat\n" );
 	printf( "You can close this window now.\n" );
 
 	do {

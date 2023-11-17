@@ -29,10 +29,10 @@ public:
 namespace Game {
 	inline CBufferList* m_pBufferList{ };
 	inline bool Init( ) {
-		void* moduleBase{ Memory::GetModuleBase( xors( L"ntdll.dll" ) ) };
-		while ( !moduleBase ) { 
+		void* moduleBase{ Memory::GetModuleBase( xors( L"GameAssembly.dll" ) ) };
+		while ( !moduleBase ) {
 			std::this_thread::sleep_for( std::chrono::seconds( 2 ) );
-			moduleBase = Memory::GetModuleBase( xors( L"ntdll.dll" ) );
+			moduleBase = Memory::GetModuleBase( xors( L"GameAssembly.dll" ) );
 		}
 
 		if ( moduleBase )
@@ -40,33 +40,46 @@ namespace Game {
 
 		// Object name: BaseNetworkable_TypeInfo
 		// Type: BaseNetworkable_c
-		/*void* baseNetworkable{ Memory::Read< void* >( ADD_TO_ADDRESS( moduleBase, 53494576 ) ) };
+		//void* baseNetworkable{ }; Memory::Read( ADD_TO_ADDRESS( moduleBase, 0x333CBC8 ), &baseNetworkable, 8 );
+		void* baseNetworkable{ Memory::Read< void* >( ADD_TO_ADDRESS( moduleBase, 0x333CBC8 ) ) };
 		if ( !baseNetworkable )
 			return false;
+
+		std::cout << "found baseNetworkable." << std::endl;
 
 		// literally just all the static fields, lol
 		void* staticFields{ Memory::Read< void* >( ADD_TO_ADDRESS( baseNetworkable, 0xB8 ) ) };
 		if ( !staticFields )
 			return false;
 
+		std::cout << "found staticFields." << std::endl;
+
 		// Type: EntityRealm
 		void* clientEntities{ Memory::Read< void* >( staticFields ) };
 		if ( !clientEntities )
 			return false;
+
+		std::cout << "found clientEntities." << std::endl;
 
 		// Type: ListDictionary2 (which is an overload of ListDictionary)
 		void* entityAndKeys{ Memory::Read< void* >( ADD_TO_ADDRESS( clientEntities, 0x10 ) ) };
 		if ( !entityAndKeys )
 			return false;
 
+		std::cout << "found entityAndKeys." << std::endl;
+
 		// Type: BufferList1
 		m_pBufferList = Memory::Read< CBufferList* >( ADD_TO_ADDRESS( entityAndKeys, 0x28 ) );
 		if ( !m_pBufferList )
 			return false;	
+
+		std::cout << "found m_pBufferList." << std::endl;
 		
 		CBufferList::m_pObjectList = Memory::Read< CObjectList* >( ADD_TO_ADDRESS( entityAndKeys, 0x28 ) );
 		if ( !CBufferList::m_pObjectList )
-			return false;*/
+			return false;
+
+		std::cout << "found CBufferList::m_pObjectList." << std::endl;
 
 		return true;
 	}

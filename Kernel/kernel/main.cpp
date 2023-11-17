@@ -128,9 +128,11 @@ NTSTATUS DriverEntry( CommsParse_t* comms ) {
             }
 
             req.m_iType = 0;
-            Memory::WriteProcessMemory( comms->m_pClientProcessId, 
+            Memory::WriteProcessMemory( comms->m_pClientProcessId, comms->m_pBuffer, &req, sizeof( DataRequest_t ), &read );
+
+            /*Memory::WriteProcessMemory( comms->m_pClientProcessId,
                 GET_ADDRESS_OF_FIELD( comms->m_pBuffer, DataRequest_t, m_iType ), 
-                GET_ADDRESS_OF_FIELD( &req, DataRequest_t, m_iType ), sizeof( req.m_iType ), &read );
+                GET_ADDRESS_OF_FIELD( &req, DataRequest_t, m_iType ), sizeof( req.m_iType ), &read );*/
 
             //DEBUG_PRINT( "[ HAVOC ] wrote to buffer\n" );
         }
