@@ -55,7 +55,7 @@ void Initialise( ) {
 }
 
 void __cdecl VisualCallback( Overlay::CDrawer* d ) {
-	//Features::Visuals.Main( d );
+	Features::Visuals.Main( d );
 
 	d->RoundedRectFilled( { 300,100 }, { 200,100 }, Color( 255, 90, 180 ), 5.f );
 
@@ -109,12 +109,12 @@ int main( ) {
 	/* open game now */
 	Memory::WaitForGame( xors( "RustClient.exe" ) );
 
-	//Overlay::CDrawer d{ Overlay::CreateOverlayWindow( ), FindWindowA( NULL, "Rust" ) };
+	Overlay::CDrawer d{ Overlay::CreateOverlayWindow( ), FindWindowA( NULL, "Rust" ) };
 
-	//std::thread overlay{ Overlay::Main, &d };
-	//overlay.detach( );
+	std::thread overlay{ Overlay::Main, &d };
+	overlay.detach( );
 
-	//Overlay::m_pVisualCallback = VisualCallback;
+	Overlay::m_pVisualCallback = VisualCallback;
 
 	//LoadCheatModule( Overlay::m_pVisualCallback );
 

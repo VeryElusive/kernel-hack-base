@@ -163,8 +163,7 @@ void CMapper::MapWorkerDriver( HANDLE iqvw64e_device_handle, uint8_t* data, void
 	DWORD TotalVirtualHeaderSize = ( IMAGE_FIRST_SECTION( nt_headers ) )->VirtualAddress;
 	image_size = image_size - TotalVirtualHeaderSize;
 
-	uint64_t mdlptr = 0;
-	uint64_t kernel_image_base = intel_driver::AllocatePool( iqvw64e_device_handle, POOL_TYPE::NonPagedPool, image_size );
+	uint64_t kernel_image_base = AllocIndependentPages( iqvw64e_device_handle, image_size );
 
 	if ( !kernel_image_base ) {
 		VirtualFree( local_image_base, 0, MEM_RELEASE );
@@ -214,7 +213,7 @@ void CMapper::MapWorkerDriver( HANDLE iqvw64e_device_handle, uint8_t* data, void
 		}
 
 		const uint64_t kernel_entry = kernel_image_base + nt_headers->OptionalHeader.AddressOfEntryPoint;
-		void* local_entry = ( void* ) ( ( uintptr_t ) local_image_base + nt_headers->OptionalHeader.AddressOfEntryPoint );
+		//void* local_entry = ( void* ) ( ( uintptr_t ) local_image_base + nt_headers->OptionalHeader.AddressOfEntryPoint );
 
 		if ( !intel_driver::WriteMemory( iqvw64e_device_handle, realBase, ( PVOID ) ( ( uintptr_t ) local_image_base + TotalVirtualHeaderSize ), image_size ) ) {
 			kernel_image_base = realBase;
@@ -225,18 +224,14 @@ void CMapper::MapWorkerDriver( HANDLE iqvw64e_device_handle, uint8_t* data, void
 
 		// Call driver entry point
 		NTSTATUS status = 0;
-		//reinterpret_cast< CommsParse_t* >( comms )->m_iEntryDeltaFromBase = nt_headers->OptionalHeader.AddressOfEntryPoint;
-
 		intel_driver::CallKernelFunction( iqvw64e_device_handle, &status, kernel_entry, comms );
-
-		//intel_driver::FreePool( iqvw64e_device_handle, realBase );
 
 		auto handle{ intel_driver::Load( ) };
 		if ( handle == INVALID_HANDLE_VALUE )
 			handle = iqvw64e_device_handle;
 
 		if ( handle != INVALID_HANDLE_VALUE ) {
-			intel_driver::FreePool( handle, realBase );
+			intel_driver::MmFreeIndependentPages( iqvw64e_device_handle, realBase, image_size );
 
 			if ( !intel_driver::Unload( handle ) )
 				printf( "failed to unload driver. \n" );
@@ -247,6 +242,5 @@ void CMapper::MapWorkerDriver( HANDLE iqvw64e_device_handle, uint8_t* data, void
 	} while ( false );
 
 	VirtualFree( local_image_base, 0, MEM_RELEASE );
-
-	intel_driver::FreePool( iqvw64e_device_handle, kernel_image_base );
+	intel_driver::MmFreeIndependentPages( iqvw64e_device_handle, kernel_image_base, image_size );
 }

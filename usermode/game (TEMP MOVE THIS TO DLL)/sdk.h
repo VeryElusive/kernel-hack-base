@@ -8,10 +8,25 @@
 
 #define ADD_TO_ADDRESS( addr, offset )reinterpret_cast< void* >( reinterpret_cast< uintptr_t >( addr ) + offset )
 
+#undef GetClassName
+
+class CObject {
+public:
+	std::string GetClassName( ) {
+		const auto object_unk{ Memory::Read<uintptr_t>( this ) };
+		if ( !object_unk )
+			return {};
+
+		std::unique_ptr<char[ ]> buffer( new char[ 13 ] );
+		Memory::Read( Memory::Read( reinterpret_cast< void* >( object_unk + 0x10 ) ), buffer.get( ), 13 );
+		return std::string( buffer.get( ) );
+	}
+};
+
 class CObjectList {
 public:
-	void* Get( int i ) {
-		return Memory::Read< void* >( ADD_TO_ADDRESS( this, ( 0x20 + ( i * 0x8 ) ) ) );
+	CObject* Get( int i ) {
+		return Memory::Read< CObject* >( ADD_TO_ADDRESS( this, ( 0x20 + ( i * 0x8 ) ) ) );
 	}
 };
 
@@ -47,10 +62,18 @@ namespace Game {
 
 		std::cout << "found baseNetworkable." << std::endl;
 
+		/* this only exists when in game */
+
+		// TODO: check local plyer connected
+		/*"Address": 54160440,
+		"Name": "LocalPlayer_TypeInfo",
+			"Signature" : "LocalPlayer_c*"*/
+
 		// literally just all the static fields, lol
 		void* staticFields{ Memory::Read< void* >( ADD_TO_ADDRESS( baseNetworkable, 0xB8 ) ) };
-		if ( !staticFields )
-			return false;
+
+		while ( !staticFields )
+			staticFields = Memory::Read< void* >( ADD_TO_ADDRESS( baseNetworkable, 0xB8 ) );
 
 		std::cout << "found staticFields." << std::endl;
 

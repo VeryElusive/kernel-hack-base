@@ -28,7 +28,7 @@ namespace Memory {
         while ( Context::CommunicationBuffer.m_iType != 0 ) { _ReadWriteBarrier( ); };
     }
 
-    template <class T>
+    template <class T = void*>
     __forceinline T Read( void* address ) {
         T ret{ };
         Read( address, &ret, sizeof( T ) );
