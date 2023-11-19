@@ -56,11 +56,11 @@ public:
 
 namespace Game {
 	inline CBufferList* m_pBufferList{ };
-	inline CGameObjectManager* m_pGameObjectManager{ };
+	//inline CGameObjectManager* m_pGameObjectManager{ };
 	inline void* m_pCameraInstance{ };
 
 	inline Matrix4x4_t GetViewMatrix( ) {
-		return Memory::Read<Matrix4x4_t>( ADD_TO_ADDRESS( m_pCameraInstance, 0xDC ) );
+		return Memory::Read<Matrix4x4_t>( ADD_TO_ADDRESS( m_pCameraInstance, 0x2E4 ) );
 	}
 
 	inline bool Init( ) {
@@ -70,18 +70,20 @@ namespace Game {
 			gameAssembly = Memory::GetModuleBase( xors( L"GameAssembly.dll" ) );
 		}		
 		
-		void* unityPlayer{ Memory::GetModuleBase( xors( L"UnityPlayer.dll" ) ) };
+		/*void* unityPlayer{ Memory::GetModuleBase( xors( L"UnityPlayer.dll" ) ) };
 		while ( !unityPlayer ) {
 			std::this_thread::sleep_for( std::chrono::seconds( 2 ) );
 			unityPlayer = Memory::GetModuleBase( xors( L"UnityPlayer.dll" ) );
-		}
+		}*/
 
 		// Object name: BaseNetworkable_TypeInfo
 		// Type: BaseNetworkable_c
-		//void* baseNetworkable{ }; Memory::Read( ADD_TO_ADDRESS( gameAssembly, 0x333CBC8 ), &baseNetworkable, 8 );
 		void* baseNetworkable{ Memory::Read< void* >( ADD_TO_ADDRESS( gameAssembly, 0x333CBC8 ) ) };
 		if ( !baseNetworkable )
 			return false;
+		
+		// prob move to this soon
+		//void* entityAndKeys = Memory::ReadChain( gameAssembly, { 0x333CBC8, 0xB8, 0x10 } );
 
 		/* this only exists when in game */
 
@@ -111,11 +113,39 @@ namespace Game {
 		if ( !m_pBufferList )
 			return false;	
 
-		CBufferList::m_pObjectList = Memory::Read< CObjectList* >( ADD_TO_ADDRESS( entityAndKeys, 0x28 ) );
+		CBufferList::m_pObjectList = Memory::Read< CObjectList* >( ADD_TO_ADDRESS( m_pBufferList, 0x18 ) );
 		if ( !CBufferList::m_pObjectList )
 			return false;
 
-		/* unity player */
+		printf( "1!\n" );
+
+		//https://i.epvpimg.com/lnxDgab.png
+
+		// Object name: MainCamera_TypeInfo
+		// Type: MainCamera_c
+		void* MainCamera_TypeInfo{ Memory::Read( ADD_TO_ADDRESS( gameAssembly, 54172272 ) ) };
+		if ( !MainCamera_TypeInfo )
+			return false;
+
+		printf( "2!\n" );
+
+		void* camera_staticfields { Memory::Read( ADD_TO_ADDRESS( MainCamera_TypeInfo, 0xB8 ) ) };
+		if ( !camera_staticfields )
+			return false;
+
+		printf( "3!\n" );
+
+		void* main_camera{ Memory::Read( camera_staticfields ) };
+		if ( !main_camera )
+			return false;
+
+		printf( "4!\n" );
+
+		m_pCameraInstance = Memory::Read( ADD_TO_ADDRESS( main_camera, 0x10 ) );
+		if ( !m_pCameraInstance )
+			return false;
+
+		/* unity player 
 
 		printf( "unityplayer!\n" );
 
@@ -145,7 +175,7 @@ namespace Game {
 
 		m_pCameraInstance = Memory::Read( ADD_TO_ADDRESS( object_class, 0x18 ) );
 		if ( !m_pCameraInstance )
-			return false;
+			return false;*/
 
 		printf( "finished initialisation!\n" );
 

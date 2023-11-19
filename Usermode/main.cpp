@@ -16,6 +16,8 @@ LONG WINAPI SimplestCrashHandler( EXCEPTION_POINTERS* ExceptionInfo ) {
 	if ( intel_driver::iqvw64e_device_handle )
 		intel_driver::Unload( intel_driver::iqvw64e_device_handle );
 
+	Memory::UnloadDriver( );
+
 	printf( "crashed.\n" );
 	Sleep( 5000 );
 
@@ -108,7 +110,7 @@ int main( ) {
 	//intel_driver::Unload( intel_driver::iqvw64e_device_handle );
 
 	/* open game now */
-	//Memory::WaitForGame( xors( "RustClient.exe" ) );
+	Memory::WaitForGame( xors( "RustClient.exe" ) );
 
 	Overlay::CDrawer d{ Overlay::CreateOverlayWindow( ), FindWindowA( NULL, "Rust" ) };
 
@@ -119,10 +121,10 @@ int main( ) {
 
 	//LoadCheatModule( Overlay::m_pVisualCallback );
 
-	//if ( !Game::Init( ) )
-	//	printf( "fail\n" );
-	//else
-	//	printf( "w chat\n" );
+	if ( !Game::Init( ) )
+		printf( "fail\n" );
+	else
+		printf( "w chat\n" );
 
 	printf( "You can close this window now.\n" );
 

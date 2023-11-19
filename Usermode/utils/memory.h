@@ -43,6 +43,21 @@ namespace Memory {
         return ret;
     }
 
+    template <class T = void*>
+    __forceinline T ReadChain( void* address, std::vector<uintptr_t> offsets ) {
+        T ret{ };
+        void* next{ address };
+
+        for ( const auto& offset : offsets ) {
+            const auto addy{ ADD_TO_ADDRESS( next, offset ) };
+            Read( addy, &next, 8 );
+        }
+
+        ret = next;
+
+        return reinterpret_cast< T >( ret );
+    }
+
     inline void* GetModuleBase( const wchar_t* moduleName ) {
         while ( Context::CommunicationBuffer.m_iType != 0 ) { _ReadWriteBarrier( ); };
 
