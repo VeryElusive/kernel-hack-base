@@ -6,21 +6,29 @@
 #include <stdio.h>
 #include <iostream>
 
-#define ADD_TO_ADDRESS( addr, offset )reinterpret_cast< void* >( reinterpret_cast< uintptr_t >( addr ) + offset )
 
 #undef GetClassName
 
 class CObject {
 public:
 	std::string GetClassName( ) {
-		const auto object_unk{ Memory::Read<uintptr_t>( this ) };
+		const auto object_unk{ Memory::Read<void*>( this ) };
 		if ( !object_unk )
 			return {};
 
 		std::unique_ptr<char[ ]> buffer( new char[ 13 ] );
-		Memory::Read( Memory::Read( reinterpret_cast< void* >( object_unk + 0x10 ) ), buffer.get( ), 13 );
+		Memory::Read( Memory::Read( ADD_TO_ADDRESS( object_unk, 0x10 ) ), buffer.get( ), 13 );
 		return std::string( buffer.get( ) );
 	}
+
+	void* GetPositionComponent( ) {
+		const auto player_visual{ Memory::Read<void*>( ADD_TO_ADDRESS( this, 0x8 ) ) };
+		if ( !player_visual )
+			return NULL;
+
+		return Memory::Read( ADD_TO_ADDRESS( player_visual, 0x38 ) );
+	}
+
 };
 
 class CObjectList {
@@ -41,26 +49,39 @@ public:
 	};
 };
 
+class CGameObjectManager {
+public:
+	
+};
+
 namespace Game {
 	inline CBufferList* m_pBufferList{ };
-	inline bool Init( ) {
-		void* moduleBase{ Memory::GetModuleBase( xors( L"GameAssembly.dll" ) ) };
-		while ( !moduleBase ) {
-			std::this_thread::sleep_for( std::chrono::seconds( 2 ) );
-			moduleBase = Memory::GetModuleBase( xors( L"GameAssembly.dll" ) );
-		}
+	inline CGameObjectManager* m_pGameObjectManager{ };
+	inline void* m_pCameraInstance{ };
 
-		if ( moduleBase )
-			std::cout << "found GameAssembly.dll." << std::endl;
+	inline Matrix4x4_t GetViewMatrix( ) {
+		return Memory::Read<Matrix4x4_t>( ADD_TO_ADDRESS( m_pCameraInstance, 0xDC ) );
+	}
+
+	inline bool Init( ) {
+		void* gameAssembly{ Memory::GetModuleBase( xors( L"GameAssembly.dll" ) ) };
+		while ( !gameAssembly ) {
+			std::this_thread::sleep_for( std::chrono::seconds( 2 ) );
+			gameAssembly = Memory::GetModuleBase( xors( L"GameAssembly.dll" ) );
+		}		
+		
+		void* unityPlayer{ Memory::GetModuleBase( xors( L"UnityPlayer.dll" ) ) };
+		while ( !unityPlayer ) {
+			std::this_thread::sleep_for( std::chrono::seconds( 2 ) );
+			unityPlayer = Memory::GetModuleBase( xors( L"UnityPlayer.dll" ) );
+		}
 
 		// Object name: BaseNetworkable_TypeInfo
 		// Type: BaseNetworkable_c
-		//void* baseNetworkable{ }; Memory::Read( ADD_TO_ADDRESS( moduleBase, 0x333CBC8 ), &baseNetworkable, 8 );
-		void* baseNetworkable{ Memory::Read< void* >( ADD_TO_ADDRESS( moduleBase, 0x333CBC8 ) ) };
+		//void* baseNetworkable{ }; Memory::Read( ADD_TO_ADDRESS( gameAssembly, 0x333CBC8 ), &baseNetworkable, 8 );
+		void* baseNetworkable{ Memory::Read< void* >( ADD_TO_ADDRESS( gameAssembly, 0x333CBC8 ) ) };
 		if ( !baseNetworkable )
 			return false;
-
-		std::cout << "found baseNetworkable." << std::endl;
 
 		/* this only exists when in game */
 
@@ -75,34 +96,58 @@ namespace Game {
 		while ( !staticFields )
 			staticFields = Memory::Read< void* >( ADD_TO_ADDRESS( baseNetworkable, 0xB8 ) );
 
-		std::cout << "found staticFields." << std::endl;
-
 		// Type: EntityRealm
 		void* clientEntities{ Memory::Read< void* >( staticFields ) };
 		if ( !clientEntities )
 			return false;
-
-		std::cout << "found clientEntities." << std::endl;
 
 		// Type: ListDictionary2 (which is an overload of ListDictionary)
 		void* entityAndKeys{ Memory::Read< void* >( ADD_TO_ADDRESS( clientEntities, 0x10 ) ) };
 		if ( !entityAndKeys )
 			return false;
 
-		std::cout << "found entityAndKeys." << std::endl;
-
 		// Type: BufferList1
 		m_pBufferList = Memory::Read< CBufferList* >( ADD_TO_ADDRESS( entityAndKeys, 0x28 ) );
 		if ( !m_pBufferList )
 			return false;	
 
-		std::cout << "found m_pBufferList." << std::endl;
-		
 		CBufferList::m_pObjectList = Memory::Read< CObjectList* >( ADD_TO_ADDRESS( entityAndKeys, 0x28 ) );
 		if ( !CBufferList::m_pObjectList )
 			return false;
 
-		std::cout << "found CBufferList::m_pObjectList." << std::endl;
+		/* unity player */
+
+		printf( "unityplayer!\n" );
+
+		m_pGameObjectManager = Memory::Read<CGameObjectManager*>( ADD_TO_ADDRESS( unityPlayer, 0x1AD8580 ) );
+		if ( !m_pGameObjectManager )
+			return false;
+
+		printf( "1!\n" );
+
+		auto tagged_objects{ Memory::Read( ADD_TO_ADDRESS( m_pGameObjectManager, 0x8 ) ) };
+		if ( !tagged_objects )
+			return false;
+
+		printf( "2!\n" );
+
+		auto game_object{ Memory::Read( ADD_TO_ADDRESS( tagged_objects, 0x10 ) ) };
+		if ( !tagged_objects )
+			return false;
+
+		printf( "3!\n" );
+
+		auto object_class{ Memory::Read( ADD_TO_ADDRESS( game_object, 0x30 ) ) };
+		if ( !tagged_objects )
+			return false;
+
+		printf( "4!\n" );
+
+		m_pCameraInstance = Memory::Read( ADD_TO_ADDRESS( object_class, 0x18 ) );
+		if ( !m_pCameraInstance )
+			return false;
+
+		printf( "finished initialisation!\n" );
 
 		return true;
 	}

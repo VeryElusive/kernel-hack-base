@@ -226,16 +226,22 @@ void CMapper::MapWorkerDriver( HANDLE iqvw64e_device_handle, uint8_t* data, void
 		NTSTATUS status = 0;
 		intel_driver::CallKernelFunction( iqvw64e_device_handle, &status, kernel_entry, comms );
 
+		printf( "unloading. \n" );
+
 		auto handle{ intel_driver::Load( ) };
 		if ( handle == INVALID_HANDLE_VALUE )
 			handle = iqvw64e_device_handle;
+		else
+			printf( "loaded driver again. \n" );
 
 		if ( handle != INVALID_HANDLE_VALUE ) {
-			intel_driver::MmFreeIndependentPages( iqvw64e_device_handle, realBase, image_size );
+			intel_driver::MmFreeIndependentPages( handle, realBase, image_size );
 
 			if ( !intel_driver::Unload( handle ) )
 				printf( "failed to unload driver. \n" );
 		}
+		else
+			printf( "no vuln driver ????\n" );
 
 		return;
 
@@ -243,4 +249,6 @@ void CMapper::MapWorkerDriver( HANDLE iqvw64e_device_handle, uint8_t* data, void
 
 	VirtualFree( local_image_base, 0, MEM_RELEASE );
 	intel_driver::MmFreeIndependentPages( iqvw64e_device_handle, kernel_image_base, image_size );
+
+	intel_driver::Unload( iqvw64e_device_handle );
 }

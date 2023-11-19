@@ -5,9 +5,14 @@
 
 // TODO: test performance of this cuz it could be poor due to timing issues (doubt)
 
+#define ADD_TO_ADDRESS( addr, offset )reinterpret_cast< void* >( reinterpret_cast< uintptr_t >( addr ) + offset )
+
 namespace Memory {
     inline void Write( void* address, void* buffer, int size ) {
         while ( Context::CommunicationBuffer.m_iType != 0 ) { _ReadWriteBarrier( ); };
+
+        if ( !address || !buffer )
+            return;
 
         Context::CommunicationBuffer.m_iType = REQUEST_WRITE;
         Context::CommunicationBuffer.m_pAddress = address;
@@ -19,6 +24,9 @@ namespace Memory {
 
     inline void Read( void* address, void* buffer, int size ) {
         while ( Context::CommunicationBuffer.m_iType != 0 ) { _ReadWriteBarrier( ); };
+
+        if ( !address || !buffer )
+            return;
 
         Context::CommunicationBuffer.m_iType = REQUEST_READ;
         Context::CommunicationBuffer.m_pAddress = address;

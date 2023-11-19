@@ -45,11 +45,12 @@ void Initialise( ) {
 	// remember to make this load it off server
 	Mapper.MapWorkerDriver( intel_driver::iqvw64e_device_handle, raw_image.data( ), &Context::Comms );
 
-	intel_driver::Unload( intel_driver::iqvw64e_device_handle );
 
 	//Sleep( 5000 );
 
 	//Context::Close = true;
+
+	printf( "exiting." );
 
 	std::exit( 0 );
 }
@@ -107,7 +108,7 @@ int main( ) {
 	//intel_driver::Unload( intel_driver::iqvw64e_device_handle );
 
 	/* open game now */
-	Memory::WaitForGame( xors( "RustClient.exe" ) );
+	//Memory::WaitForGame( xors( "RustClient.exe" ) );
 
 	Overlay::CDrawer d{ Overlay::CreateOverlayWindow( ), FindWindowA( NULL, "Rust" ) };
 
@@ -118,10 +119,10 @@ int main( ) {
 
 	//LoadCheatModule( Overlay::m_pVisualCallback );
 
-	if ( !Game::Init( ) )
-		printf( "fail\n" );
-	else
-		printf( "w chat\n" );
+	//if ( !Game::Init( ) )
+	//	printf( "fail\n" );
+	//else
+	//	printf( "w chat\n" );
 
 	printf( "You can close this window now.\n" );
 

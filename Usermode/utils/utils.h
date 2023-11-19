@@ -1,5 +1,6 @@
 #pragma once
 #include "../sdk/windows/ntstructs.h"
+#include "../sdk/vector.h"
 
 #include <string>
 #include <fstream>
