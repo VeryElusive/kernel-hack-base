@@ -100,6 +100,9 @@ NTSTATUS DriverEntry( CommsParse_t* comms ) {
                 return STATUS_SUCCESS;
             }
 
+            //const auto client{ Utils::LookupPEProcessFromID( comms->m_pClientProcessId ) };
+            //const auto game{ Utils::LookupPEProcessFromID( gamePID ) };
+
             switch ( req.m_iType ) {
             case REQUEST_READ:
                 Memory::ReadProcessMemory( gamePID, req.m_pAddress, buf, req.m_nSize, &read );

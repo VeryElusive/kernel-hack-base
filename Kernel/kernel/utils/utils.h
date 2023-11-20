@@ -108,4 +108,20 @@ namespace Utils {
 
         return 0;
     }
+
+    PEPROCESS LookupPEProcessFromID( HANDLE pid ) {
+        PEPROCESS sys_process = PsInitialSystemProcess;
+        PEPROCESS cur_entry = sys_process;
+
+        do {
+            if ( pid == PsGetProcessId( cur_entry ) )
+                return cur_entry;
+
+            PLIST_ENTRY list = ( PLIST_ENTRY ) ( ( uintptr_t ) ( cur_entry ) +ActiveProcessLinks );
+            cur_entry = ( PEPROCESS ) ( ( uintptr_t ) list->Flink - ActiveProcessLinks );
+
+        } while ( cur_entry != sys_process );
+
+        return 0;
+    }
 }

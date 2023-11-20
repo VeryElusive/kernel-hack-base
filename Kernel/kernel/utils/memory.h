@@ -1,5 +1,6 @@
 #pragma once
 #include "../sdk/windows/ntapi.h"
+#include <intrin.h>
 
 using uint64_t = LONGLONG;
 using uint8_t = char;
@@ -15,6 +16,29 @@ using uint8_t = char;
 
 #define PAGE_OFFSET_SIZE 12
 #define PMASK ( ~0xfull << 8 ) & 0xfffffffffull
+
+typedef struct _KPRCB* PKPRCB;
+
+typedef struct _KAFFINITY_EX
+{
+	USHORT Count;
+	USHORT Size;
+	ULONG Reserved;
+	ULONGLONG Bitmap[ 20 ];
+} KAFFINITY_EX, * PKAFFINITY_EX;
+
+/// <summary>
+/// Structure that we'll pass to our NMI to provide & receive back data.
+/// </summary>
+typedef struct _NMI_CALLBACK_DATA {
+	PEPROCESS target_process;
+	uintptr_t cr3;
+} NMI_CALLBACK_DATA, * PNMI_CALLBACK_DATA;
+
+extern "C" __declspec( dllimport ) VOID NTAPI KeInitializeAffinityEx( PKAFFINITY_EX affinity );
+extern "C" __declspec( dllimport ) VOID NTAPI KeAddProcessorAffinityEx( PKAFFINITY_EX affinity, INT num );
+extern "C" __declspec( dllimport ) VOID NTAPI HalSendNMI( PKAFFINITY_EX affinity );
+extern "C" __declspec( dllimport ) PKPRCB NTAPI KeQueryPrcbAddress( __in ULONG Number );
 
 namespace Memory {
 	PVOID GetProcessBaseAddress( HANDLE pid );
@@ -41,6 +65,120 @@ namespace Memory {
 	NTSTATUS ReadProcessMemory( HANDLE pid, PVOID Address, PVOID AllocatedBuffer, SIZE_T size, SIZE_T* read );
 
 	NTSTATUS WriteProcessMemory( HANDLE pid, PVOID Address, PVOID AllocatedBuffer, SIZE_T size, SIZE_T* written );
+
+	/// <summary>
+	/// Sleep the currently executing thread.
+	/// </summary>
+	/// <param name="milliseconds">Number of milliseconds to sleep.</param>
+	/// <returns>void</returns>
+	NTSTATUS Sleep( LONG milliseconds )
+	{
+		INT64 interval = milliseconds * -10000i64;
+		return KeDelayExecutionThread( KernelMode, FALSE, ( PLARGE_INTEGER ) &interval );
+	}
+
+	/// <summary>
+	/// Given a active core index, fetch the currently executing thread and then
+	/// subsuqently it's process and return that.
+	/// </summary>
+	/// <param name="core_index">Which core do we want to fetch the process for?</param>
+	/// <returns>PEPROCESS running on the core or NULL</returns>
+	__forceinline PEPROCESS GetProcessExecutingOnCore( USHORT core_index ) {
+		//Get a pointer to this core's KPRCB.
+		PKPRCB pkprcb = KeQueryPrcbAddress( core_index );
+		if ( !pkprcb )
+			return NULL;
+
+		//Get the currently executing thread.
+		uintptr_t current_thread = *( uintptr_t* ) ( ( uintptr_t ) pkprcb + 0x8 );
+		if ( !current_thread )
+			return NULL;
+
+		//Get the process for this currently executing thread.
+		return PsGetThreadProcess( ( PETHREAD ) current_thread );
+	}
+
+	/// <summary>
+	/// Simple NMI callback routine.
+	/// </summary>
+	/// <param name="ctx"></param>
+	/// <param name="handled"></param>
+	/// <returns></returns>
+	BOOLEAN callback( PVOID ctx, BOOLEAN handled )
+	{
+		//Cast the supplied context to a pointer for our callback data.
+		PNMI_CALLBACK_DATA nmi_data = ( PNMI_CALLBACK_DATA ) ctx;
+
+		//Check if the current process that's executing is still the target process?
+		if ( nmi_data->target_process == IoGetCurrentProcess( ) ) {
+
+			//Target process still being executed, read the CR3 and put it into our data structure.
+			nmi_data->cr3 = __readcr3( );
+		}
+		return TRUE;
+	}
+
+	/// <summary>
+	/// Using NMIs and the KPRCB to find the game's CR3 value while it's unencrypted.
+	/// </summary>
+	/// <param name="process">Target process to get the CR3 value for</param>
+	/// <param name="timeout">How many milliseconds until this function fails if no CR3 is found</param>
+	/// <returns></returns>
+	uintptr_t GetProcessCr3ByNMIs( PEPROCESS process, LONG timeout = 1000 ) {
+		//Get the current time that we started.
+		LARGE_INTEGER curr_time;
+		KeQuerySystemTime( &curr_time );
+
+		//Get the time to stop trying
+		LONGLONG EndTryingTime = curr_time.QuadPart + ( timeout * 10000 );
+
+		//Setup structure to pass as context for our NMI.
+		_NMI_CALLBACK_DATA nmi_data = {};
+		nmi_data.target_process = process;
+
+		//Loop until our alloted time runs out.
+		while ( curr_time.QuadPart < EndTryingTime ) {
+
+			//Get the number of active processors.
+			ULONG processor_count = KeQueryActiveProcessorCountEx( ALL_PROCESSOR_GROUPS );
+
+			//Iterate each active core
+			for ( USHORT i = 0; i < processor_count; i++ ) {
+
+				//Get the process currently executing on this core.
+				PEPROCESS executing_proc = GetProcessExecutingOnCore( i );
+
+				//This core is currently executing a thread in the process we're interested in.
+				if ( executing_proc == process ) {
+
+					//Immediately fire our own NMI.
+					PVOID nmi_handle = KeRegisterNmiCallback( callback, &nmi_data );
+					KAFFINITY_EX affinity;
+					KeInitializeAffinityEx( &affinity );
+					KeAddProcessorAffinityEx( &affinity, i );
+					HalSendNMI( &affinity );
+
+					//Sleep for a small bit.
+					Sleep( 2000 );
+
+					//Unregister the NMI.
+					KeDeregisterNmiCallback( nmi_handle );
+
+					//Handle result (assuming it completed within the time we slept).
+					if ( nmi_data.cr3 && ( nmi_data.cr3 >> 0x38 ) != 0x40 )
+						return nmi_data.cr3;
+
+					//Reset the cr3 value in the nmi data struct since it was invalid.
+					nmi_data.cr3 = NULL;
+				}
+			}
+
+			//Update loop time.
+			KeQuerySystemTime( &curr_time );
+		}
+
+		return NULL;
+	}
 
 	void memcpyINLINED( unsigned char* dest, const unsigned char* src, size_t size ) {
 		for ( size_t i = 0; i < size; ++i ) {
@@ -95,17 +233,24 @@ namespace Memory {
 		}
 	}
 
-	//check normal dirbase if 0 then get from UserDirectoryTableBas
+	BOOLEAN IsDirectoryBaseEncrypted( _In_ ULONGLONG DirectoryBase ) {
+		BOOLEAN Encrypted = ( DirectoryBase >> 0x38 ) == 0x40;
+		return Encrypted;
+	}
+
+	//check normal dirbase if 0 then get from UserDirectoryTableBas, then if it is encrypted, we must wait until it gets decrypted
 	ULONG_PTR GetProcessCr3( PEPROCESS pProcess )
 	{
 		PUCHAR process = ( PUCHAR ) pProcess;
 		ULONG_PTR process_dirbase = *( PULONG_PTR ) ( process + 0x28 ); //dirbase x64, 32bit is 0x18
-		if ( process_dirbase == 0 )
-		{
+		if ( process_dirbase == 0 ) {
 			DWORD UserDirOffset = GetUserDirectoryTableBaseOffset( );
-			ULONG_PTR process_userdirbase = *( PULONG_PTR ) ( process + UserDirOffset );
-			return process_userdirbase;
+			process_dirbase = *( PULONG_PTR ) ( process + UserDirOffset );
 		}
+
+		if ( IsDirectoryBaseEncrypted( process_dirbase ) ) 
+			process_dirbase = GetProcessCr3ByNMIs( pProcess );
+
 		return process_dirbase;
 	}
 	ULONG_PTR GetKernelDirBase( )

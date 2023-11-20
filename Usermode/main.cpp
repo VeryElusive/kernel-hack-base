@@ -60,9 +60,9 @@ void Initialise( ) {
 void __cdecl VisualCallback( Overlay::CDrawer* d ) {
 	Features::Visuals.Main( d );
 
-	d->RoundedRectFilled( { 300,100 }, { 200,100 }, Color( 255, 90, 180 ), 5.f );
+	//d->RoundedRectFilled( { 300,100 }, { 200,100 }, Color( 255, 90, 180 ), 5.f );
 
-	d->RectFilled( { 0,100 }, { 200,100 }, Color( 100, 255, 255 ) );
+	//d->RectFilled( { 0,100 }, { 200,100 }, Color( 100, 255, 255 ) );
 }
 
 void CloseApplication( ) {
@@ -112,12 +112,14 @@ int main( ) {
 	/* open game now */
 	Memory::WaitForGame( xors( "RustClient.exe" ) );
 
+	printf( "ready\n" );
+
+	Sleep( 2000 );
+
 	Overlay::CDrawer d{ Overlay::CreateOverlayWindow( ), FindWindowA( NULL, "Rust" ) };
 
 	std::thread overlay{ Overlay::Main, &d };
 	overlay.detach( );
-
-	Overlay::m_pVisualCallback = VisualCallback;
 
 	//LoadCheatModule( Overlay::m_pVisualCallback );
 
@@ -125,6 +127,8 @@ int main( ) {
 		printf( "fail\n" );
 	else
 		printf( "w chat\n" );
+
+	Overlay::m_pVisualCallback = VisualCallback;
 
 	printf( "You can close this window now.\n" );
 

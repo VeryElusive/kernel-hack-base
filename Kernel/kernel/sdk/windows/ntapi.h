@@ -54,3 +54,11 @@ PPEB
 PsGetProcessPeb(
 	IN PEPROCESS Process
 );
+
+extern "C"
+NTKERNELAPI
+PEPROCESS
+NTAPI
+PsGetThreadProcess(
+	_In_ PETHREAD Thread
+);
