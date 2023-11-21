@@ -29,33 +29,29 @@ inline void Delaynie( ULONG milliseconds ) {
 }
 
 // only for x64
-inline void* GetModuleBase( HANDLE gamePID, wchar_t* moduleName ) {
+inline void* GetModuleBase( PEPROCESS proc, wchar_t* moduleName ) {
     SIZE_T read;
 
-    PEPROCESS proc{ };
-
-    if ( PsLookupProcessByProcessId( gamePID, &proc ) != STATUS_SUCCESS || !proc ) {
-        DEBUG_PRINT( "PsLookupProcessByProcessId fail.\n" );
+    if ( !proc )
         return nullptr;
-    }
 
     PPEB PEB = 0;
-    Memory::ReadProcessMemory( gamePID, reinterpret_cast< void* >( reinterpret_cast< uintptr_t >( proc ) + 0x550 ), &PEB, 8, &read );
+    Memory::ReadProcessMemory( proc, reinterpret_cast< void* >( reinterpret_cast< uintptr_t >( proc ) + 0x550 ), &PEB, 8, &read );
 
     PPEB_LDR_DATA PEB_Ldr = 0;
-    Memory::ReadProcessMemory( gamePID, GET_ADDRESS_OF_FIELD( PEB, _PEB, Ldr ), &PEB_Ldr, 8, &read );
+    Memory::ReadProcessMemory( proc, GET_ADDRESS_OF_FIELD( PEB, _PEB, Ldr ), &PEB_Ldr, 8, &read );
 
     LIST_ENTRY ModuleListLoadOrder;
-    Memory::ReadProcessMemory( gamePID, GET_ADDRESS_OF_FIELD( PEB_Ldr, PEB_LDR_DATA, ModuleListLoadOrder ), &ModuleListLoadOrder, sizeof( ModuleListLoadOrder ), &read );
+    Memory::ReadProcessMemory( proc, GET_ADDRESS_OF_FIELD( PEB_Ldr, PEB_LDR_DATA, ModuleListLoadOrder ), &ModuleListLoadOrder, sizeof( ModuleListLoadOrder ), &read );
 
     PLIST_ENTRY list{ ModuleListLoadOrder.Flink };
     PLIST_ENTRY listHead{ ModuleListLoadOrder.Flink };
     do {
         LDR_DATA_TABLE_ENTRY entry;
-        Memory::ReadProcessMemory( gamePID, CONTAINING_RECORD( list, LDR_DATA_TABLE_ENTRY, InLoadOrderModuleList ), &entry, sizeof( entry ), &read );
+        Memory::ReadProcessMemory( proc, CONTAINING_RECORD( list, LDR_DATA_TABLE_ENTRY, InLoadOrderModuleList ), &entry, sizeof( entry ), &read );
 
         WCHAR modName[ MAX_PATH ] = { 0 };
-        Memory::ReadProcessMemory( gamePID, entry.BaseDllName.Buffer, &modName, entry.BaseDllName.Length * sizeof( WCHAR ), &read );
+        Memory::ReadProcessMemory( proc, entry.BaseDllName.Buffer, &modName, entry.BaseDllName.Length * sizeof( WCHAR ), &read );
 
         if ( entry.BaseDllName.Length ) {
             //Utils::PrintWideString( modName );
@@ -88,8 +84,12 @@ NTSTATUS DriverEntry( CommsParse_t* comms ) {
     void* base{ };
 
     do {
+        const auto client{ Utils::LookupPEProcessFromID( comms->m_pClientProcessId ) };
+        if ( !client )
+            continue;
+
         // TODO: make this only init physical addresses once or woteva
-        if ( Memory::ReadProcessMemory( comms->m_pClientProcessId, comms->m_pBuffer, &req, sizeof( DataRequest_t ), &read ) != STATUS_SUCCESS )
+        if ( Memory::ReadProcessMemory( client, comms->m_pBuffer, &req, sizeof( DataRequest_t ), &read ) != STATUS_SUCCESS )
             continue;
 
         memset( buf, '\0', 64 );
@@ -100,40 +100,42 @@ NTSTATUS DriverEntry( CommsParse_t* comms ) {
                 return STATUS_SUCCESS;
             }
 
-            //const auto client{ Utils::LookupPEProcessFromID( comms->m_pClientProcessId ) };
-            //const auto game{ Utils::LookupPEProcessFromID( gamePID ) };
+            const auto game{ Utils::LookupPEProcessFromID( gamePID ) };
+            if ( !game && gamePID )
+                continue;
 
             switch ( req.m_iType ) {
             case REQUEST_READ:
-                Memory::ReadProcessMemory( gamePID, req.m_pAddress, buf, req.m_nSize, &read );
-                Memory::WriteProcessMemory( comms->m_pClientProcessId, req.m_pBuffer, buf, req.m_nSize, &read );
+                if ( Memory::ReadProcessMemory( game, req.m_pAddress, buf, req.m_nSize, &read ) != STATUS_SUCCESS )
+                    Memory::WriteProcessMemory( client, req.m_pBuffer, buf, req.m_nSize, &read );
                 break;
             case REQUEST_WRITE:
-                Memory::ReadProcessMemory( comms->m_pClientProcessId, req.m_pBuffer, buf, req.m_nSize, &read );
-                Memory::WriteProcessMemory( gamePID, req.m_pAddress, buf, req.m_nSize, &read );
+                if ( Memory::ReadProcessMemory( client, req.m_pBuffer, buf, req.m_nSize, &read ) != STATUS_SUCCESS )
+                    Memory::WriteProcessMemory( game, req.m_pAddress, buf, req.m_nSize, &read );
                 break;
             case REQUEST_GET_PID:
-                Memory::ReadProcessMemory( comms->m_pClientProcessId, req.m_pAddress, buf, req.m_nSize * sizeof( char ), &read );
+                Memory::ReadProcessMemory( client, req.m_pAddress, buf, req.m_nSize * sizeof( char ), &read );
                 do {
                     gamePID = Utils::GetPIDFromName( reinterpret_cast< char* >( buf ) );
                     Delaynie( 500 );
                 } while ( gamePID == 0 );
                 break;
             case REQUEST_GET_MODULE_BASE:
-                Memory::ReadProcessMemory( comms->m_pClientProcessId, req.m_pAddress, buf, req.m_nSize * sizeof( wchar_t ), &read );
+                Memory::ReadProcessMemory( client, req.m_pAddress, buf, req.m_nSize * sizeof( wchar_t ), &read );
 
-                base = GetModuleBase( gamePID, reinterpret_cast< wchar_t* >( buf ) );
-                Memory::WriteProcessMemory( comms->m_pClientProcessId, req.m_pBuffer,
+                base = GetModuleBase( game, reinterpret_cast< wchar_t* >( buf ) );
+                Memory::WriteProcessMemory( client, req.m_pBuffer,
                     &base, 8, &read );
+
                 break;
             default:
                 break;
             }
 
             req.m_iType = 0;
-            Memory::WriteProcessMemory( comms->m_pClientProcessId, comms->m_pBuffer, &req, sizeof( DataRequest_t ), &read );
+            Memory::WriteProcessMemory( client, comms->m_pBuffer, &req, sizeof( DataRequest_t ), &read );
 
-            /*Memory::WriteProcessMemory( comms->m_pClientProcessId,
+            /*Memory::WriteProcessMemory( client,
                 GET_ADDRESS_OF_FIELD( comms->m_pBuffer, DataRequest_t, m_iType ), 
                 GET_ADDRESS_OF_FIELD( &req, DataRequest_t, m_iType ), sizeof( req.m_iType ), &read );*/
 

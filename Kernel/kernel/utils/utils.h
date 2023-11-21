@@ -97,8 +97,10 @@ namespace Utils {
             if ( strcmp( image_name, processName ) == 0 ) {
                 RtlCopyMemory( ( PVOID ) &active_threads, ( PVOID ) ( ( uintptr_t ) cur_entry + ActiveThreads ), sizeof( active_threads ) );
 
-				if ( active_threads )
-					return PsGetProcessId( cur_entry );
+                if ( active_threads ) {
+                    DbgPrintEx( 0, 0, "found pid!\n" );
+                    return PsGetProcessId( cur_entry );
+                }
             }
 
             PLIST_ENTRY list = ( PLIST_ENTRY ) ( ( uintptr_t ) ( cur_entry ) +ActiveProcessLinks );
@@ -112,10 +114,17 @@ namespace Utils {
     PEPROCESS LookupPEProcessFromID( HANDLE pid ) {
         PEPROCESS sys_process = PsInitialSystemProcess;
         PEPROCESS cur_entry = sys_process;
+        DWORD active_threads;
 
         do {
-            if ( pid == PsGetProcessId( cur_entry ) )
-                return cur_entry;
+            RtlCopyMemory( ( PVOID ) &active_threads, ( PVOID ) ( ( uintptr_t ) cur_entry + ActiveThreads ), sizeof( active_threads ) );
+
+            if ( active_threads ) {
+                if ( pid == PsGetProcessId( cur_entry ) ) {
+                    DbgPrintEx( 0, 0, "foudn!\n" );
+                    return cur_entry;
+                }
+            }
 
             PLIST_ENTRY list = ( PLIST_ENTRY ) ( ( uintptr_t ) ( cur_entry ) +ActiveProcessLinks );
             cur_entry = ( PEPROCESS ) ( ( uintptr_t ) list->Flink - ActiveProcessLinks );

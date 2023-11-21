@@ -1,5 +1,6 @@
 #pragma once
 #include "../sdk/windows/ntapi.h"
+#include "../utils/utils.h"
 #include <intrin.h>
 
 using uint64_t = LONGLONG;
@@ -41,7 +42,7 @@ extern "C" __declspec( dllimport ) VOID NTAPI HalSendNMI( PKAFFINITY_EX affinity
 extern "C" __declspec( dllimport ) PKPRCB NTAPI KeQueryPrcbAddress( __in ULONG Number );
 
 namespace Memory {
-	PVOID GetProcessBaseAddress( HANDLE pid );
+	PVOID GetProcessBaseAddress( PEPROCESS pProcess );
 
 	DWORD GetUserDirectoryTableBaseOffset( );
 
@@ -62,9 +63,9 @@ namespace Memory {
 
 
 	//
-	NTSTATUS ReadProcessMemory( HANDLE pid, PVOID Address, PVOID AllocatedBuffer, SIZE_T size, SIZE_T* read );
+	NTSTATUS ReadProcessMemory( PEPROCESS pProcess, PVOID Address, PVOID AllocatedBuffer, SIZE_T size, SIZE_T* read );
 
-	NTSTATUS WriteProcessMemory( HANDLE pid, PVOID Address, PVOID AllocatedBuffer, SIZE_T size, SIZE_T* written );
+	NTSTATUS WriteProcessMemory( PEPROCESS pProcess, PVOID Address, PVOID AllocatedBuffer, SIZE_T size, SIZE_T* written );
 
 	/// <summary>
 	/// Sleep the currently executing thread.
@@ -186,18 +187,11 @@ namespace Memory {
 		}
 	}
 
-	PVOID GetProcessBaseAddress( HANDLE pid ) {
-		PEPROCESS pProcess = NULL;
-		if ( pid == 0 )
+	PVOID GetProcessBaseAddress( PEPROCESS pProcess ) {
+		if ( !pProcess )
 			return 0;
 
-		NTSTATUS NtRet = PsLookupProcessByProcessId( pid, &pProcess );
-		if ( NtRet != STATUS_SUCCESS )
-			return 0;
-
-		PVOID Base = PsGetProcessSectionBaseAddress( pProcess );
-		ObDereferenceObject( pProcess );
-		return Base;
+		return PsGetProcessSectionBaseAddress( pProcess );
 	}
 
 	DWORD GetUserDirectoryTableBaseOffset( )
@@ -347,16 +341,14 @@ namespace Memory {
 
 
 	//
-	NTSTATUS ReadProcessMemory( HANDLE pid, PVOID Address, PVOID AllocatedBuffer, SIZE_T size, SIZE_T* read )
+	NTSTATUS ReadProcessMemory( PEPROCESS pProcess, PVOID Address, PVOID AllocatedBuffer, SIZE_T size, SIZE_T* read )
 	{
-		PEPROCESS pProcess = NULL;
-		if ( pid == 0 ) return STATUS_UNSUCCESSFUL;
+		if ( !pProcess )
+			return STATUS_UNSUCCESSFUL;
 
-		NTSTATUS NtRet = PsLookupProcessByProcessId( pid, &pProcess );
-		if ( NtRet != STATUS_SUCCESS ) return NtRet;
+		NTSTATUS NtRet = STATUS_SUCCESS;
 
 		ULONG_PTR process_dirbase = GetProcessCr3( pProcess );
-		ObDereferenceObject( pProcess );
 
 		SIZE_T CurOffset = 0;
 		uint64_t TotalSize = size;
@@ -379,16 +371,15 @@ namespace Memory {
 		return NtRet;
 	}
 
-	NTSTATUS WriteProcessMemory( HANDLE pid, PVOID Address, PVOID AllocatedBuffer, SIZE_T size, SIZE_T* written )
+	NTSTATUS WriteProcessMemory( PEPROCESS pProcess, PVOID Address, PVOID AllocatedBuffer, SIZE_T size, SIZE_T* written )
 	{
-		PEPROCESS pProcess = NULL;
-		if ( pid == 0 ) return STATUS_UNSUCCESSFUL;
+		if ( !pProcess )
+			return STATUS_UNSUCCESSFUL;
 
-		NTSTATUS NtRet = PsLookupProcessByProcessId( pid, &pProcess );
-		if ( NtRet != STATUS_SUCCESS ) return NtRet;
+		NTSTATUS NtRet = STATUS_SUCCESS;
 
 		ULONG_PTR process_dirbase = GetProcessCr3( pProcess );
-		ObDereferenceObject( pProcess );
+		
 
 		SIZE_T CurOffset = 0;
 		uint64_t TotalSize = size;
