@@ -95,6 +95,9 @@ NTSTATUS DriverEntry( CommsParse_t* comms ) {
     if ( !Memory::CR3[ CLIENT ] )
         return STATUS_ABANDONED;
 
+    //const auto test{ Memory::BruteForceDirectoryTableBase( comms->m_pClientProcessId ) };
+
+
     do {
         if ( Memory::ReadProcessMemory( CLIENT, comms->m_pBuffer, &req, sizeof( DataRequest_t ), &read ) != STATUS_SUCCESS )
             continue;
@@ -120,10 +123,19 @@ NTSTATUS DriverEntry( CommsParse_t* comms ) {
                 Memory::ReadProcessMemory( CLIENT, req.m_pAddress, buf, req.m_nSize * sizeof( char ), &read );
                 do {
                     gamePID = Utils::GetPIDFromName( reinterpret_cast< char* >( buf ) );
-
-                    Memory::CR3[ GAME ] = Memory::BruteForceDirectoryTableBase( gamePID );
                     Delaynie( 500 );
                 } while ( gamePID == 0 );
+
+               /* Memory::CR3[ GAME ] = *( PULONG_PTR ) ( ( uintptr_t ) Utils::LookupPEProcessFromID( gamePID ) + 0x28 ); //dirbase x64, 32bit is 0x18
+                if ( Memory::CR3[ GAME ] == 0 ) {
+                    DWORD UserDirOffset = Memory::GetUserDirectoryTableBaseOffset( );
+                    Memory::CR3[ GAME ] = *( PULONG_PTR ) ( ( uintptr_t ) Utils::LookupPEProcessFromID( gamePID ) + UserDirOffset );
+                }
+
+                DEBUG_PRINT( "basic: %p\n", reinterpret_cast< void* >( Memory::CR3[ CLIENT ] ) );*/
+
+                Memory::CR3[ GAME ] = Memory::BruteForceDirectoryTableBase( gamePID );
+                //DEBUG_PRINT( "brute: %p\n", reinterpret_cast< void* >( Memory::CR3[ CLIENT ] ) );
                 break;
             case REQUEST_GET_MODULE_BASE:
                 Memory::ReadProcessMemory( CLIENT, req.m_pAddress, buf, req.m_nSize * sizeof( wchar_t ), &read );

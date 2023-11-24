@@ -10,7 +10,11 @@ PVOID Memory::GetProcessBaseAddress( PEPROCESS pProcess ) {
 }
 
 ULONG_PTR Memory::BruteForceDirectoryTableBase( HANDLE PID ) {
-	auto base_address = PsGetProcessSectionBaseAddress( Utils::LookupPEProcessFromID( PID ) );
+	const auto proc{ Utils::LookupPEProcessFromID( PID ) };
+	if ( !proc )
+		return 0;
+
+	auto base_address = PsGetProcessSectionBaseAddress( proc );
 	if ( !base_address )
 		return 0;
 
@@ -26,7 +30,7 @@ ULONG_PTR Memory::BruteForceDirectoryTableBase( HANDLE PID ) {
 		if ( !elem->BaseAddress.QuadPart || !elem->NumberOfBytes.QuadPart )
 			return 0;
 
-		uint64_t current_physical = elem->BaseAddress.QuadPart;
+		ULONG_PTR current_physical = elem->BaseAddress.QuadPart;
 
 		for ( int j = 0; j < ( elem->NumberOfBytes.QuadPart / 0x1000 ); j++, current_physical += 0x1000 ) {
 			_MMPTE pml4e = { 0 };
@@ -60,9 +64,11 @@ ULONG_PTR Memory::BruteForceDirectoryTableBase( HANDLE PID ) {
 			if ( header->e_magic != IMAGE_DOS_SIGNATURE )
 				continue;
 
-			return current_physical;
+			// from debugging its always -2 ?
+			return current_physical + 2u;
 		}
 	}
+
 }
 
 DWORD Memory::GetUserDirectoryTableBaseOffset( ) {
