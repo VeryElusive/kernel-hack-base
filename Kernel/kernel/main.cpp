@@ -29,14 +29,15 @@ inline void Delaynie( ULONG milliseconds ) {
 }
 
 // only for x64
-inline void* GetModuleBase( PEPROCESS proc, wchar_t* moduleName ) {
+inline void* GetModuleBase( HANDLE gamePID, PROCTYPE proc, wchar_t* moduleName ) {
     SIZE_T read;
 
-    if ( !proc )
-        return nullptr;
+    const auto eproc{ Utils::LookupPEProcessFromID( gamePID ) };
+    if ( !eproc )
+        return 0;
 
     PPEB PEB = 0;
-    Memory::ReadProcessMemory( proc, reinterpret_cast< void* >( reinterpret_cast< uintptr_t >( proc ) + 0x550 ), &PEB, 8, &read );
+    Memory::ReadProcessMemory( proc, reinterpret_cast< void* >( reinterpret_cast< uintptr_t >( eproc ) + 0x550 ), &PEB, 8, &read );
 
     PPEB_LDR_DATA PEB_Ldr = 0;
     Memory::ReadProcessMemory( proc, GET_ADDRESS_OF_FIELD( PEB, _PEB, Ldr ), &PEB_Ldr, 8, &read );
@@ -71,10 +72,8 @@ inline void* GetModuleBase( PEPROCESS proc, wchar_t* moduleName ) {
 NTSTATUS DriverEntry( CommsParse_t* comms ) {
     //DEBUG_PRINT( "[ HAVOC ] Loaded driver\n" );
 
-    if ( !comms ) {
-        //DEBUG_PRINT( "[ HAVOC ] comms was null!\n" );
+    if ( !comms )
         return STATUS_ABANDONED;
-    }
 
     SIZE_T read = 0;
     HANDLE gamePID{ 0 };
@@ -83,13 +82,21 @@ NTSTATUS DriverEntry( CommsParse_t* comms ) {
     char buf[ 64 ]{ };
     void* base{ };
 
-    do {
-        const auto client{ Utils::LookupPEProcessFromID( comms->m_pClientProcessId ) };
-        if ( !client )
-            continue;
+    const auto client{ Utils::LookupPEProcessFromID( comms->m_pClientProcessId ) };
+    if ( !client )
+        return STATUS_ABANDONED;
 
-        // TODO: make this only init physical addresses once or woteva
-        if ( Memory::ReadProcessMemory( client, comms->m_pBuffer, &req, sizeof( DataRequest_t ), &read ) != STATUS_SUCCESS )
+    Memory::CR3[ CLIENT ] = *( PULONG_PTR ) ( ( uintptr_t ) client + 0x28 ); //dirbase x64, 32bit is 0x18
+    if ( Memory::CR3[ CLIENT ] == 0 ) {
+        DWORD UserDirOffset = Memory::GetUserDirectoryTableBaseOffset( );
+        Memory::CR3[ CLIENT ] = *( PULONG_PTR ) ( ( uintptr_t ) client + UserDirOffset );
+    }
+
+    if ( !Memory::CR3[ CLIENT ] )
+        return STATUS_ABANDONED;
+
+    do {
+        if ( Memory::ReadProcessMemory( CLIENT, comms->m_pBuffer, &req, sizeof( DataRequest_t ), &read ) != STATUS_SUCCESS )
             continue;
 
         memset( buf, '\0', 64 );
@@ -100,31 +107,29 @@ NTSTATUS DriverEntry( CommsParse_t* comms ) {
                 return STATUS_SUCCESS;
             }
 
-            const auto game{ Utils::LookupPEProcessFromID( gamePID ) };
-            if ( !game && gamePID )
-                continue;
-
             switch ( req.m_iType ) {
             case REQUEST_READ:
-                if ( Memory::ReadProcessMemory( game, req.m_pAddress, buf, req.m_nSize, &read ) != STATUS_SUCCESS )
-                    Memory::WriteProcessMemory( client, req.m_pBuffer, buf, req.m_nSize, &read );
+                if ( Memory::ReadProcessMemory( GAME, req.m_pAddress, buf, req.m_nSize, &read ) != STATUS_SUCCESS )
+                    Memory::WriteProcessMemory( CLIENT, req.m_pBuffer, buf, req.m_nSize, &read );
                 break;
             case REQUEST_WRITE:
-                if ( Memory::ReadProcessMemory( client, req.m_pBuffer, buf, req.m_nSize, &read ) != STATUS_SUCCESS )
-                    Memory::WriteProcessMemory( game, req.m_pAddress, buf, req.m_nSize, &read );
+                if ( Memory::ReadProcessMemory( CLIENT, req.m_pBuffer, buf, req.m_nSize, &read ) != STATUS_SUCCESS )
+                    Memory::WriteProcessMemory( GAME, req.m_pAddress, buf, req.m_nSize, &read );
                 break;
             case REQUEST_GET_PID:
-                Memory::ReadProcessMemory( client, req.m_pAddress, buf, req.m_nSize * sizeof( char ), &read );
+                Memory::ReadProcessMemory( CLIENT, req.m_pAddress, buf, req.m_nSize * sizeof( char ), &read );
                 do {
                     gamePID = Utils::GetPIDFromName( reinterpret_cast< char* >( buf ) );
+
+                    Memory::CR3[ GAME ] = Memory::BruteForceDirectoryTableBase( gamePID );
                     Delaynie( 500 );
                 } while ( gamePID == 0 );
                 break;
             case REQUEST_GET_MODULE_BASE:
-                Memory::ReadProcessMemory( client, req.m_pAddress, buf, req.m_nSize * sizeof( wchar_t ), &read );
+                Memory::ReadProcessMemory( CLIENT, req.m_pAddress, buf, req.m_nSize * sizeof( wchar_t ), &read );
 
-                base = GetModuleBase( game, reinterpret_cast< wchar_t* >( buf ) );
-                Memory::WriteProcessMemory( client, req.m_pBuffer,
+                base = GetModuleBase( gamePID, GAME, reinterpret_cast< wchar_t* >( buf ) );
+                Memory::WriteProcessMemory( CLIENT, req.m_pBuffer,
                     &base, 8, &read );
 
                 break;
@@ -133,7 +138,7 @@ NTSTATUS DriverEntry( CommsParse_t* comms ) {
             }
 
             req.m_iType = 0;
-            Memory::WriteProcessMemory( client, comms->m_pBuffer, &req, sizeof( DataRequest_t ), &read );
+            Memory::WriteProcessMemory( CLIENT, comms->m_pBuffer, &req, sizeof( DataRequest_t ), &read );
 
             /*Memory::WriteProcessMemory( client,
                 GET_ADDRESS_OF_FIELD( comms->m_pBuffer, DataRequest_t, m_iType ), 

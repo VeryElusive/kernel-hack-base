@@ -110,13 +110,13 @@ int main( ) {
 	//intel_driver::Unload( intel_driver::iqvw64e_device_handle );
 
 	/* open game now */
-	Memory::WaitForGame( xors( "RustClient.exe" ) );
+	Memory::WaitForGame( xors( "Dbgview.exe" ) );
 
 	printf( "ready\n" );
 
 	Sleep( 2000 );
 
-	Overlay::CDrawer d{ Overlay::CreateOverlayWindow( ), FindWindowA( NULL, "Rust" ) };
+	/*Overlay::CDrawer d{ Overlay::CreateOverlayWindow( ), FindWindowA( NULL, "Rust" ) };
 
 	std::thread overlay{ Overlay::Main, &d };
 	overlay.detach( );
@@ -128,7 +128,7 @@ int main( ) {
 	else
 		printf( "w chat\n" );
 
-	Overlay::m_pVisualCallback = VisualCallback;
+	Overlay::m_pVisualCallback = VisualCallback;*/
 
 	printf( "You can close this window now.\n" );
 

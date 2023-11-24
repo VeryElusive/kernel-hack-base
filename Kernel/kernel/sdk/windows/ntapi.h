@@ -62,3 +62,18 @@ NTAPI
 PsGetThreadProcess(
 	_In_ PETHREAD Thread
 );
+
+extern "C"
+NTKERNELAPI
+ULONG
+NTAPI
+KeCapturePersistentThreadState(
+	IN PCONTEXT Context,
+	IN PKTHREAD Thread,
+	IN ULONG BugCheckCode,
+	IN ULONG BugCheckParameter1,
+	IN ULONG BugCheckParameter2,
+	IN ULONG BugCheckParameter3,
+	IN ULONG BugCheckParameter4,
+	OUT PVOID VirtualAddress
+);

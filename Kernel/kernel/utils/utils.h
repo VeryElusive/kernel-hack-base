@@ -1,6 +1,7 @@
 #pragma once
 #include <ntddk.h>
 #include <ntimage.h>
+#include <intrin.h>
 #include "../sdk/windows/ntstructs.h"
 
 #define GET_ADDRESS_OF_FIELD(address, type, field) reinterpret_cast< void* >((type *)( \
@@ -16,46 +17,107 @@ namespace Utils {
 
 	}
 
-	__forceinline BOOLEAN CheckMask( PCHAR base, PCHAR pattern, PCHAR mask ) {
-		for ( ; *mask; ++base, ++pattern, ++mask ) {
-			if ( *mask == 'x' && *base != *pattern ) {
-				return FALSE;
-			}
-		}
+    __forceinline BOOLEAN CheckByte( IN UCHAR Byte, IN PCSTR Str )
+    {
+        if ( Str[ 0 ] == '?' && Str[ 1 ] == '?' )
+            return TRUE;
 
-		return TRUE;
-	}
+        UCHAR Bytes[ 2 ] = { 0, 0 };
+        for ( UCHAR i = 0; i < 2; ++i )
+        {
+            if ( Str[ i ] >= '0' && Str[ i ] <= '9' )
+                Bytes[ i ] = UCHAR( Str[ i ] - 48 );
 
+            else if ( Str[ i ] >= 'A' && Str[ i ] <= 'F' )
+                Bytes[ i ] = UCHAR( Str[ i ] - 55 );
 
-	__forceinline PVOID FindPattern( PCHAR base, DWORD length, PCHAR pattern, PCHAR mask ) {
-		length -= ( DWORD ) strlen( mask );
-		for ( DWORD i = 0; i <= length; ++i ) {
-			PCHAR addr = &base[ i ];
-			if ( CheckMask( addr, pattern, mask ) ) {
-				return addr;
-			}
-		}
+            else return FALSE;
+        }
+        return ( Bytes[ 0 ] << 4 | Bytes[ 1 ] ) == Byte;
+    }
 
-		return 0;
-	}
+    __forceinline BOOLEAN CheckPattern( IN PVOID Base, IN ULONG Size, IN PCSTR Pattern )
+    {
+        for ( ULONG Offset = 0; Offset < Size; ++Offset, ++Pattern, ++Pattern )
+        {
+            while ( Pattern[ 0 ] == ' ' )
+                ++Pattern;
 
-	__forceinline PVOID FindPatternImage( PCHAR base, PCHAR pattern, PCHAR mask ) {
-		PVOID match = 0;
+            if ( Pattern[ 0 ] == 0 )
+                return TRUE;
 
-		PIMAGE_NT_HEADERS headers = ( PIMAGE_NT_HEADERS ) ( base + ( ( PIMAGE_DOS_HEADER ) base )->e_lfanew );
-		PIMAGE_SECTION_HEADER sections = IMAGE_FIRST_SECTION( headers );
-		for ( DWORD i = 0; i < headers->FileHeader.NumberOfSections; ++i ) {
-			PIMAGE_SECTION_HEADER section = &sections[ i ];
-			if ( *( PINT ) section->Name == 'EGAP' || memcmp( section->Name, ".text", 5 ) == 0 ) {
-				match = FindPattern( base + section->VirtualAddress, section->Misc.VirtualSize, pattern, mask );
-				if ( match ) {
-					break;
-				}
-			}
-		}
+            if ( CheckByte( ( ( PUCHAR ) Base )[ Offset ], Pattern ) == FALSE )
+                break;
+        }
+        return FALSE;
+    }
 
-		return match;
-	}
+    __forceinline BOOLEAN FindPattern( OUT PVOID* Found, IN PVOID Base, IN ULONG Size, IN PCSTR Pattern )
+    {
+        for ( ULONG Offset = 0; Offset < Size; ++Offset )
+        {
+            if ( CheckPattern( ( PUCHAR ) Base + Offset, Size - Offset, Pattern ) == FALSE )
+                continue;
+
+            *Found = ( PUCHAR ) Base + Offset;
+            return TRUE;
+        }
+        return FALSE;
+    }
+
+    EXTERN_C PLIST_ENTRY PsLoadedModuleList;
+
+#define EX_FIELD_ADDRESS(Type, Base, Member)				((PUCHAR)Base + FIELD_OFFSET(Type, Member))
+#define EX_FOR_EACH_IN_LIST(_Type, _Link, _Head, _Current)	for ((_Current) = CONTAINING_RECORD((_Head)->Flink, _Type, _Link); (_Head) != (PLIST_ENTRY)EX_FIELD_ADDRESS(_Type, _Current, _Link); (_Current) = CONTAINING_RECORD(((PLIST_ENTRY)EX_FIELD_ADDRESS(_Type, _Current, _Link))->Flink, _Type, _Link))
+
+    __forceinline PVOID GetSytemModuleBaseAddress( OUT OPTIONAL PVOID* BaseOfImage, IN PCWSTR ImageName ) {
+        UNICODE_STRING UnicodeString;
+        RtlInitUnicodeString( &UnicodeString, ImageName );
+
+        PKLDR_DATA_TABLE_ENTRY CurrentLdrEntry = NULL;
+        EX_FOR_EACH_IN_LIST( KLDR_DATA_TABLE_ENTRY, InLoadOrderLinks, PsLoadedModuleList, CurrentLdrEntry ) {
+            if ( ImageName == NULL || RtlEqualUnicodeString( &UnicodeString, &CurrentLdrEntry->BaseDllName, TRUE ) ) {
+                if ( BaseOfImage )
+                    *BaseOfImage = CurrentLdrEntry->DllBase;
+
+                return CurrentLdrEntry->DllBase;
+            }
+        }
+
+        return NULL;
+    }
+
+    __forceinline BOOLEAN FindPatternImage( OUT PVOID* Found, IN PCWSTR ImageName, IN OPTIONAL PCSTR SectionName, IN PCSTR Pattern )
+    {
+        PUCHAR ImageBase = NULL;
+        if ( GetSytemModuleBaseAddress( ( PVOID* ) &ImageBase, ImageName ) == FALSE )
+            return FALSE;
+
+        PIMAGE_DOS_HEADER pIDH = ( PIMAGE_DOS_HEADER ) ImageBase;
+        if ( pIDH->e_magic != IMAGE_DOS_SIGNATURE )
+            return FALSE;
+
+        PIMAGE_NT_HEADERS pINH = ( PIMAGE_NT_HEADERS ) &ImageBase[ pIDH->e_lfanew ];
+        if ( pINH->Signature != IMAGE_NT_SIGNATURE )
+            return FALSE;
+
+        PIMAGE_SECTION_HEADER pISH = PIMAGE_SECTION_HEADER( pINH + 1 );
+        for ( USHORT i = 0; i < pINH->FileHeader.NumberOfSections; ++i )
+        {
+            if ( pISH[ i ].Characteristics & IMAGE_SCN_MEM_DISCARDABLE )
+                continue;
+
+            if ( ( pISH[ i ].Characteristics & IMAGE_SCN_MEM_EXECUTE ) == NULL )
+                continue;
+
+            if ( SectionName && strcmp( SectionName, ( const char* ) pISH[ i ].Name ) != 0 )
+                continue;
+
+            if ( FindPattern( Found, &ImageBase[ pISH[ i ].VirtualAddress ], pISH[ i ].Misc.VirtualSize, Pattern ) )
+                return TRUE;
+        }
+        return FALSE;
+    }
 
     __forceinline void PrintWideString( const wchar_t* wideString ) {
         if ( wideString ) {
@@ -82,12 +144,13 @@ namespace Utils {
 #define ActiveThreads 0x5F0 // EPROCESS::ActiveThreads
 #define ThreadListHead 0x5E0 // EPROCESS::ThreadListHead
 #define ActiveProcessLinks 0x448 // EPROCESS::ActiveProcessLinks
+#define SectionBaseAddress 0x520 // EPROCESS::SectionBaseAddress
 
-	HANDLE GetPIDFromName( const CHAR* processName ) {
+    __forceinline PEPROCESS GetProcessFromName( const CHAR* processName ) {
         CHAR image_name[ 15 ];
         PEPROCESS sys_process = PsInitialSystemProcess;
         PEPROCESS cur_entry = sys_process;
-		DWORD active_threads;
+        DWORD active_threads;
 
         do {
             RtlCopyMemory( ( PVOID ) ( &image_name ), ( PVOID ) ( ( uintptr_t ) cur_entry + ImageFileName ), sizeof( image_name ) );
@@ -97,10 +160,8 @@ namespace Utils {
             if ( strcmp( image_name, processName ) == 0 ) {
                 RtlCopyMemory( ( PVOID ) &active_threads, ( PVOID ) ( ( uintptr_t ) cur_entry + ActiveThreads ), sizeof( active_threads ) );
 
-                if ( active_threads ) {
-                    DbgPrintEx( 0, 0, "found pid!\n" );
-                    return PsGetProcessId( cur_entry );
-                }
+                if ( active_threads )
+                    return cur_entry;
             }
 
             PLIST_ENTRY list = ( PLIST_ENTRY ) ( ( uintptr_t ) ( cur_entry ) +ActiveProcessLinks );
@@ -111,7 +172,15 @@ namespace Utils {
         return 0;
     }
 
-    PEPROCESS LookupPEProcessFromID( HANDLE pid ) {
+    __forceinline HANDLE GetPIDFromName( const CHAR* processName ) {
+        const auto proc{ GetProcessFromName( processName ) };
+        if ( !proc )
+            return 0;
+
+        return PsGetProcessId( proc );
+    }
+
+    __forceinline PEPROCESS LookupPEProcessFromID( HANDLE pid ) {
         PEPROCESS sys_process = PsInitialSystemProcess;
         PEPROCESS cur_entry = sys_process;
         DWORD active_threads;
@@ -120,10 +189,8 @@ namespace Utils {
             RtlCopyMemory( ( PVOID ) &active_threads, ( PVOID ) ( ( uintptr_t ) cur_entry + ActiveThreads ), sizeof( active_threads ) );
 
             if ( active_threads ) {
-                if ( pid == PsGetProcessId( cur_entry ) ) {
-                    DbgPrintEx( 0, 0, "foudn!\n" );
+                if ( pid == PsGetProcessId( cur_entry ) )
                     return cur_entry;
-                }
             }
 
             PLIST_ENTRY list = ( PLIST_ENTRY ) ( ( uintptr_t ) ( cur_entry ) +ActiveProcessLinks );
@@ -132,5 +199,25 @@ namespace Utils {
         } while ( cur_entry != sys_process );
 
         return 0;
+    }
+
+    __forceinline void* GetNtosImageBase( ULONG* Size ) {
+        UCHAR EntryPoint[ ] = { 0x48, 0x8D, 0x1D, 0xFF };
+        for ( auto Page = __readmsr( 0xC0000082 ) & ~0xfff; Page != NULL; Page -= PAGE_SIZE )
+        {
+            if ( *( USHORT* ) Page == IMAGE_DOS_SIGNATURE )
+            {
+                for ( auto Bytes = Page; Bytes < Page + 0x400; Bytes += 8 )
+                {
+                    if ( memcmp( ( void* ) Bytes, EntryPoint, sizeof( EntryPoint ) ) )
+                    {
+                        *Size = reinterpret_cast< IMAGE_NT_HEADERS64* >( Page + reinterpret_cast< IMAGE_DOS_HEADER* >( Page )->e_lfanew )->OptionalHeader.SizeOfImage;
+                        return ( void* ) Page;
+                    }
+                }
+            }
+        }
+
+        return nullptr;
     }
 }
