@@ -36,6 +36,9 @@ inline void* GetModuleBase( HANDLE gamePID, PROCTYPE proc, wchar_t* moduleName )
     if ( !eproc )
         return 0;
 
+    //DEBUG_PRINT( "basic: %llu\n", Memory::CR3[ proc ] );
+    //DEBUG_PRINT( "brute: %llu\n", Memory::CR3[ GAME2 ] );
+
     PPEB PEB = 0;
     Memory::ReadProcessMemory( proc, reinterpret_cast< void* >( reinterpret_cast< uintptr_t >( eproc ) + 0x550 ), &PEB, 8, &read );
 
@@ -112,12 +115,12 @@ NTSTATUS DriverEntry( CommsParse_t* comms ) {
 
             switch ( req.m_iType ) {
             case REQUEST_READ:
-                if ( Memory::ReadProcessMemory( GAME, req.m_pAddress, buf, req.m_nSize, &read ) != STATUS_SUCCESS )
-                    Memory::WriteProcessMemory( CLIENT, req.m_pBuffer, buf, req.m_nSize, &read );
+                Memory::ReadProcessMemory( GAME, req.m_pAddress, buf, req.m_nSize, &read );
+                Memory::WriteProcessMemory( CLIENT, req.m_pBuffer, buf, req.m_nSize, &read );
                 break;
             case REQUEST_WRITE:
-                if ( Memory::ReadProcessMemory( CLIENT, req.m_pBuffer, buf, req.m_nSize, &read ) != STATUS_SUCCESS )
-                    Memory::WriteProcessMemory( GAME, req.m_pAddress, buf, req.m_nSize, &read );
+                Memory::ReadProcessMemory( CLIENT, req.m_pBuffer, buf, req.m_nSize, &read );
+                Memory::WriteProcessMemory( GAME, req.m_pAddress, buf, req.m_nSize, &read );
                 break;
             case REQUEST_GET_PID:
                 Memory::ReadProcessMemory( CLIENT, req.m_pAddress, buf, req.m_nSize * sizeof( char ), &read );
@@ -126,18 +129,23 @@ NTSTATUS DriverEntry( CommsParse_t* comms ) {
                     Delaynie( 500 );
                 } while ( gamePID == 0 );
 
-               /* Memory::CR3[ GAME ] = *( PULONG_PTR ) ( ( uintptr_t ) Utils::LookupPEProcessFromID( gamePID ) + 0x28 ); //dirbase x64, 32bit is 0x18
+                Memory::BruteForceDirectoryTableBase( gamePID );
+                //Memory::UpdatePML4ECache( gamePID );
+                //Memory::UpdateGameCR3( gamePID );
+                //Memory::CR3[ GAME2 ] = Memory::BruteForceDirectoryTableBase( gamePID );
+
+                DEBUG_PRINT( "brute: %llu\n", Memory::CR3[ GAME ] );
+
+                Memory::CR3[ GAME ] = *( PULONG_PTR ) ( ( uintptr_t ) Utils::LookupPEProcessFromID( gamePID ) + 0x28 ); //dirbase x64, 32bit is 0x18
                 if ( Memory::CR3[ GAME ] == 0 ) {
                     DWORD UserDirOffset = Memory::GetUserDirectoryTableBaseOffset( );
                     Memory::CR3[ GAME ] = *( PULONG_PTR ) ( ( uintptr_t ) Utils::LookupPEProcessFromID( gamePID ) + UserDirOffset );
                 }
 
-                DEBUG_PRINT( "basic: %p\n", reinterpret_cast< void* >( Memory::CR3[ CLIENT ] ) );*/
-
-                Memory::CR3[ GAME ] = Memory::BruteForceDirectoryTableBase( gamePID );
-                //DEBUG_PRINT( "brute: %p\n", reinterpret_cast< void* >( Memory::CR3[ CLIENT ] ) );
+                DEBUG_PRINT( "basic: %llu\n", Memory::CR3[ GAME ] );
                 break;
             case REQUEST_GET_MODULE_BASE:
+                //Memory::CR3[ GAME ] = Memory::BruteForceDirectoryTableBase( gamePID );
                 Memory::ReadProcessMemory( CLIENT, req.m_pAddress, buf, req.m_nSize * sizeof( wchar_t ), &read );
 
                 base = GetModuleBase( gamePID, GAME, reinterpret_cast< wchar_t* >( buf ) );

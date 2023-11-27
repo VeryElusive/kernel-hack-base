@@ -72,7 +72,7 @@ namespace Game {
 			printf( "fail\n" );
 			std::this_thread::sleep_for( std::chrono::seconds( 2 ) );
 			gameAssembly = Memory::GetModuleBase( xors( L"GameAssembly.dll" ) );
-		}		
+		}
 
 		printf( "found ga\n" );
 		
@@ -82,11 +82,15 @@ namespace Game {
 			unityPlayer = Memory::GetModuleBase( xors( L"UnityPlayer.dll" ) );
 		}*/
 
+		Sleep( 2000 );
+
 		// Object name: BaseNetworkable_TypeInfo
 		// Type: BaseNetworkable_c
-		void* baseNetworkable{ Memory::Read< void* >( ADD_TO_ADDRESS( gameAssembly, 0x333CBC8 ) ) };
+		void* baseNetworkable{ Memory::Read< void* >( ADD_TO_ADDRESS( gameAssembly, 0x333CBD8 ) ) };
 		if ( !baseNetworkable )
 			return false;
+
+		printf( "1\n" );
 		
 		// prob move to this soon
 		//void* entityAndKeys = Memory::ReadChain( gameAssembly, { 0x333CBC8, 0xB8, 0x10 } );
@@ -94,8 +98,7 @@ namespace Game {
 		/* this only exists when in game */
 
 		// TODO: check local plyer connected
-		/*"Address": 54160440,
-		"Name": "LocalPlayer_TypeInfo",
+		/*"Name": "LocalPlayer_TypeInfo",
 			"Signature" : "LocalPlayer_c*"*/
 
 		// literally just all the static fields, lol
@@ -113,15 +116,21 @@ namespace Game {
 		if ( !clientEntities )
 			return false;
 
+		printf( "2\n" );
+
 		// Type: ListDictionary2 (which is an overload of ListDictionary)
 		void* entityAndKeys{ Memory::Read< void* >( ADD_TO_ADDRESS( clientEntities, 0x10 ) ) };
 		if ( !entityAndKeys )
 			return false;
 
+		printf( "3\n" );
+
 		// Type: BufferList1
 		m_pBufferList = Memory::Read< CBufferList* >( ADD_TO_ADDRESS( entityAndKeys, 0x28 ) );
 		if ( !m_pBufferList )
 			return false;	
+
+		printf( "4\n" );
 
 		CBufferList::m_pObjectList = Memory::Read< CObjectList* >( ADD_TO_ADDRESS( m_pBufferList, 0x18 ) );
 		if ( !CBufferList::m_pObjectList )
@@ -133,7 +142,7 @@ namespace Game {
 
 		// Object name: MainCamera_TypeInfo
 		// Type: MainCamera_c
-		void* MainCamera_TypeInfo{ Memory::Read( ADD_TO_ADDRESS( gameAssembly, 54172272 ) ) };
+		void* MainCamera_TypeInfo{ Memory::Read( ADD_TO_ADDRESS( gameAssembly, 54172280 ) ) };
 		if ( !MainCamera_TypeInfo )
 			return false;
 

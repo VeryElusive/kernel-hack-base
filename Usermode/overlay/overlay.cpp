@@ -1,4 +1,5 @@
 #include "overlay.h"
+#include "../context.h"
 
 #include <random>
 #include <chrono>
@@ -15,6 +16,9 @@ void Overlay::Main( CDrawer* d ) {
     watermark.Align( ETextAlign::right );
 
     while ( true ) {
+        if ( !Context::Close )
+            break;
+
         d->PumpMessages( );
         if ( m_pVisualCallback )
             m_pVisualCallback( d );

@@ -6,5 +6,5 @@
 namespace Context {
 	inline volatile DataRequest_t CommunicationBuffer;
 	inline CommsParse_t Comms{ };
-	//inline bool Close{ };
+	inline bool Close{ };
 }

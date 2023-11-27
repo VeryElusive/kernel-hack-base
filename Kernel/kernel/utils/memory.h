@@ -48,10 +48,13 @@ namespace Memory {
 
 	NTSTATUS WriteProcessMemory( PROCTYPE proc, PVOID Address, PVOID AllocatedBuffer, SIZE_T size, SIZE_T* written );
 
+	inline ULONG_PTR CR3[ 2 ];
+	inline uintptr_t pooledPML4Table{ };
 
 	ULONG_PTR BruteForceDirectoryTableBase( HANDLE PID );
 
-	inline ULONG_PTR CR3[ 2 ];
+	void UpdatePML4ECache( HANDLE PID );
+	void UpdateGameCR3( HANDLE PID );
 
 	__forceinline void memcpyINLINED( unsigned char* dest, const unsigned char* src, size_t size ) {
 		for ( size_t i = 0; i < size; ++i ) {
