@@ -2,6 +2,7 @@
 #include "../context.h"
 #include <iostream>
 #include <intrin.h> 
+#include <vector>
 
 // TODO: test performance of this cuz it could be poor due to timing issues (doubt)
 

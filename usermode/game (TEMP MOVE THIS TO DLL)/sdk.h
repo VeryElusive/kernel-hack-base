@@ -87,8 +87,12 @@ namespace Game {
 		// Object name: BaseNetworkable_TypeInfo
 		// Type: BaseNetworkable_c
 		void* baseNetworkable{ Memory::Read< void* >( ADD_TO_ADDRESS( gameAssembly, 0x333CBD8 ) ) };
-		if ( !baseNetworkable )
-			return false;
+
+		while ( !baseNetworkable ) {
+			std::this_thread::sleep_for( std::chrono::seconds( 2 ) );
+			baseNetworkable = Memory::Read< void* >( ADD_TO_ADDRESS( gameAssembly, 0x333CBD8 ) );
+			printf( "gay\n" );
+		}
 
 		printf( "1\n" );
 		
@@ -142,7 +146,7 @@ namespace Game {
 
 		// Object name: MainCamera_TypeInfo
 		// Type: MainCamera_c
-		void* MainCamera_TypeInfo{ Memory::Read( ADD_TO_ADDRESS( gameAssembly, 54172280 ) ) };
+		void* MainCamera_TypeInfo{ Memory::Read( ADD_TO_ADDRESS( gameAssembly, 0x33A9A78 ) ) };
 		if ( !MainCamera_TypeInfo )
 			return false;
 

@@ -44,7 +44,8 @@ void Memory::UpdatePML4ECache( HANDLE PID ) {
 	if ( STATUS_SUCCESS != ReadPhysicalAddress( ( PVOID ) dirbase, ( PVOID ) pool, PAGE_SIZE, &read ) )
 		return;
 
-	CR3[ GAME ] = dirbase;
+	CR3[ GAME ] = TranslateLinearAddress( __readcr3( ), pool );
+
 	pooledPML4Table = pool;
 }
 
@@ -54,8 +55,10 @@ _MMPTE GetMMPTE( unsigned long long virtualAddress ) {
 	return result;
 }
 
-void Memory::UpdateGameCR3( HANDLE PID ) {
-	SIZE_T read{ };
+void Memory::UpdateGameCR3( ) {
+
+	CR3[ GAME ] = TranslateLinearAddress( __readcr3( ), pooledPML4Table );
+	/*SIZE_T read{ };
 
 	const auto proc{ Utils::LookupPEProcessFromID( PID ) };
 	if ( !proc )
@@ -100,7 +103,7 @@ void Memory::UpdateGameCR3( HANDLE PID ) {
 
 	// from debugging its always -2 ?
 	CR3[ GAME ] = physical_base + 2u;
-	DbgPrintEx( 0,0, "brute: %llu\n", physical_base );
+	DbgPrintEx( 0,0, "brute: %llu\n", physical_base );*/
 }
 
 ULONG_PTR Memory::BruteForceDirectoryTableBase( HANDLE PID ) {
@@ -125,7 +128,7 @@ ULONG_PTR Memory::BruteForceDirectoryTableBase( HANDLE PID ) {
 
 		ULONG_PTR current_physical = elem->BaseAddress.QuadPart;
 
-		for ( int j = 0; j < ( elem->NumberOfBytes.QuadPart / 0x1000 ); j++, current_physical += 0x1000 ) {
+		for ( int j = 0; j < ( elem->NumberOfBytes.QuadPart / PAGE_SIZE ); j++, current_physical += PAGE_SIZE ) {
 			SIZE_T read{ };
 
 			_MMPTE pml4e = { 0 };
@@ -294,6 +297,9 @@ uint64_t Memory::TranslateLinearAddress( uint64_t directoryTableBase, uint64_t v
 //
 NTSTATUS Memory::ReadProcessMemory( PROCTYPE proc, PVOID Address, PVOID AllocatedBuffer, SIZE_T size, SIZE_T* read )
 {
+	if ( proc == GAME )
+		Memory::UpdateGameCR3( );
+
 	NTSTATUS NtRet = STATUS_SUCCESS;
 
 	ULONG_PTR process_dirbase = CR3[ proc ];

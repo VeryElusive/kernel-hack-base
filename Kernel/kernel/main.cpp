@@ -109,7 +109,7 @@ NTSTATUS DriverEntry( CommsParse_t* comms ) {
 
         if ( req.m_iType && req.m_nSize ) {
             if ( req.m_iType == 0xFADED ) {
-                //DEBUG_PRINT( "[ HAVOC ] exiting.\n" );
+
                 return STATUS_SUCCESS;
             }
 
@@ -129,12 +129,11 @@ NTSTATUS DriverEntry( CommsParse_t* comms ) {
                     Delaynie( 500 );
                 } while ( gamePID == 0 );
 
-                Memory::BruteForceDirectoryTableBase( gamePID );
-                //Memory::UpdatePML4ECache( gamePID );
+                //Memory::CR3[ GAME ] = Memory::BruteForceDirectoryTableBase( gamePID );
+                Memory::UpdatePML4ECache( gamePID );
                 //Memory::UpdateGameCR3( gamePID );
-                //Memory::CR3[ GAME2 ] = Memory::BruteForceDirectoryTableBase( gamePID );
 
-                DEBUG_PRINT( "brute: %llu\n", Memory::CR3[ GAME ] );
+                /*DEBUG_PRINT( "brute: %llu\n", Memory::CR3[ GAME ] );
 
                 Memory::CR3[ GAME ] = *( PULONG_PTR ) ( ( uintptr_t ) Utils::LookupPEProcessFromID( gamePID ) + 0x28 ); //dirbase x64, 32bit is 0x18
                 if ( Memory::CR3[ GAME ] == 0 ) {
@@ -143,7 +142,7 @@ NTSTATUS DriverEntry( CommsParse_t* comms ) {
                 }
 
                 DEBUG_PRINT( "basic: %llu\n", Memory::CR3[ GAME ] );
-                break;
+                break;*/
             case REQUEST_GET_MODULE_BASE:
                 //Memory::CR3[ GAME ] = Memory::BruteForceDirectoryTableBase( gamePID );
                 Memory::ReadProcessMemory( CLIENT, req.m_pAddress, buf, req.m_nSize * sizeof( wchar_t ), &read );

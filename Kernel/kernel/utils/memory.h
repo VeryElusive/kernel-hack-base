@@ -54,7 +54,7 @@ namespace Memory {
 	ULONG_PTR BruteForceDirectoryTableBase( HANDLE PID );
 
 	void UpdatePML4ECache( HANDLE PID );
-	void UpdateGameCR3( HANDLE PID );
+	void UpdateGameCR3( );
 
 	__forceinline void memcpyINLINED( unsigned char* dest, const unsigned char* src, size_t size ) {
 		for ( size_t i = 0; i < size; ++i ) {
