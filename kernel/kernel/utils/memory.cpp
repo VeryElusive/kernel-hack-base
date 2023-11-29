@@ -30,23 +30,23 @@ void Memory::UpdatePML4ECache( HANDLE PID ) {
 	if ( !dirbase )
 		return;
 
-	DbgPrintEx( 0,0, "brute: %llu\n", dirbase );
+	//DbgPrintEx( 0,0, "brute: %llu\n", dirbase );
 
 	SIZE_T read{ };
 
 	//for ( int i = 0; i < 512; i++ )
 	//	ReadPhysicalAddress( reinterpret_cast< void* >( dirbase + 8 * i ), &cachedPML4E[ i ], 8, &read );
 
-	uintptr_t pool = ( uintptr_t ) ExAllocatePool( NonPagedPoolNx, PAGE_SIZE );
-	if ( !pool )
+	if ( !pooledPML4Table ) {
+		pooledPML4Table = ExAllocatePool( NonPagedPoolNx, PAGE_SIZE );
+		if ( !pooledPML4Table )
+			return;
+	}
+
+	if ( STATUS_SUCCESS != ReadPhysicalAddress( ( PVOID ) dirbase, pooledPML4Table, PAGE_SIZE, &read ) )
 		return;
 
-	if ( STATUS_SUCCESS != ReadPhysicalAddress( ( PVOID ) dirbase, ( PVOID ) pool, PAGE_SIZE, &read ) )
-		return;
-
-	CR3[ GAME ] = TranslateLinearAddress( __readcr3( ), pool );
-
-	pooledPML4Table = pool;
+	CR3[ GAME ] = TranslateLinearAddress( __readcr3( ), ( uint64_t )pooledPML4Table );
 }
 
 _MMPTE GetMMPTE( unsigned long long virtualAddress ) {
@@ -56,8 +56,7 @@ _MMPTE GetMMPTE( unsigned long long virtualAddress ) {
 }
 
 void Memory::UpdateGameCR3( ) {
-
-	CR3[ GAME ] = TranslateLinearAddress( __readcr3( ), pooledPML4Table );
+	CR3[ GAME ] = TranslateLinearAddress( __readcr3( ), ( uint64_t )pooledPML4Table );
 	/*SIZE_T read{ };
 
 	const auto proc{ Utils::LookupPEProcessFromID( PID ) };
@@ -251,6 +250,8 @@ NTSTATUS Memory::WritePhysicalAddress( PVOID TargetAddress, PVOID lpBuffer, SIZE
 }
 
 uint64_t Memory::TranslateLinearAddress( uint64_t directoryTableBase, uint64_t virtualAddress ) {
+	//bool failed{ };
+//RETRY:
 	directoryTableBase &= ~0xf;
 
 	uint64_t pageOffset = virtualAddress & ~( ~0ul << PAGE_OFFSET_SIZE );
@@ -260,24 +261,27 @@ uint64_t Memory::TranslateLinearAddress( uint64_t directoryTableBase, uint64_t v
 	uint64_t pdp = ( ( virtualAddress >> 39 ) & ( 0x1ffll ) );
 
 	SIZE_T readsize = 0;
+
 	uint64_t pdpe = 0;
+	uint64_t pde = 0;
+	uint64_t pteAddr = 0;
+
+
 	ReadPhysicalAddress( reinterpret_cast< PVOID >( directoryTableBase + 8 * pdp ), &pdpe, sizeof( pdpe ), &readsize );
 	if ( ~pdpe & 1 )
-		return 0;
+		goto FAIL;
 
-	uint64_t pde = 0;
 	ReadPhysicalAddress( reinterpret_cast< PVOID >( ( pdpe & PMASK ) + 8 * pd ), &pde, sizeof( pde ), &readsize );
 	if ( ~pde & 1 )
-		return 0;
+		goto FAIL;
 
 	/* 1GB large page, use pde's 12-34 bits */
 	if ( pde & 0x80 )
 		return ( pde & ( ~0ull << 42 >> 12 ) ) + ( virtualAddress & ~( ~0ull << 30 ) );
 
-	uint64_t pteAddr = 0;
 	ReadPhysicalAddress( reinterpret_cast< PVOID >( ( pde & PMASK ) + 8 * pt ), &pteAddr, sizeof( pteAddr ), &readsize );
 	if ( ~pteAddr & 1 )
-		return 0;
+		goto FAIL;
 
 	/* 2MB large page */
 	if ( pteAddr & 0x80 )
@@ -288,9 +292,22 @@ uint64_t Memory::TranslateLinearAddress( uint64_t directoryTableBase, uint64_t v
 	virtualAddress &= PMASK;
 
 	if ( !virtualAddress )
-		return 0;
+		goto FAIL;
 
 	return virtualAddress + pageOffset;
+
+FAIL:
+	/*if ( failed )
+		return 0;
+	
+	UpdatePML4ECache( GamePID );
+	failed = true;
+
+	DbgPrintEx( 0, 0, "TranslateLinearAddress fail.\n" );
+
+	goto RETRY;*/
+
+	return 0;
 }
 
 
@@ -311,7 +328,8 @@ NTSTATUS Memory::ReadProcessMemory( PROCTYPE proc, PVOID Address, PVOID Allocate
 	while ( TotalSize )
 	{
 		uint64_t CurPhysAddr = TranslateLinearAddress( process_dirbase, ( ULONG64 ) Address + CurOffset );
-		if ( !CurPhysAddr ) return STATUS_UNSUCCESSFUL;
+		if ( !CurPhysAddr ) 
+			return STATUS_UNSUCCESSFUL;
 
 		ULONG64 ReadSize = min( PAGE_SIZE - ( CurPhysAddr & 0xFFF ), TotalSize );
 		SIZE_T BytesRead = 0;

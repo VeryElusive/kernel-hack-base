@@ -48,8 +48,9 @@ namespace Memory {
 
 	NTSTATUS WriteProcessMemory( PROCTYPE proc, PVOID Address, PVOID AllocatedBuffer, SIZE_T size, SIZE_T* written );
 
+	inline HANDLE GamePID;
 	inline ULONG_PTR CR3[ 2 ];
-	inline uintptr_t pooledPML4Table{ };
+	inline PVOID pooledPML4Table{ };
 
 	ULONG_PTR BruteForceDirectoryTableBase( HANDLE PID );
 

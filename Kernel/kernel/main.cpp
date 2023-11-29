@@ -79,7 +79,7 @@ NTSTATUS DriverEntry( CommsParse_t* comms ) {
         return STATUS_ABANDONED;
 
     SIZE_T read = 0;
-    HANDLE gamePID{ 0 };
+    //HANDLE gamePID{ 0 };
 
     DataRequest_t req{ };
     char buf[ 64 ]{ };
@@ -98,20 +98,24 @@ NTSTATUS DriverEntry( CommsParse_t* comms ) {
     if ( !Memory::CR3[ CLIENT ] )
         return STATUS_ABANDONED;
 
-    //const auto test{ Memory::BruteForceDirectoryTableBase( comms->m_pClientProcessId ) };
-
-
     do {
         if ( Memory::ReadProcessMemory( CLIENT, comms->m_pBuffer, &req, sizeof( DataRequest_t ), &read ) != STATUS_SUCCESS )
             continue;
 
-        memset( buf, '\0', 64 );
 
         if ( req.m_iType && req.m_nSize ) {
-            if ( req.m_iType == 0xFADED ) {
+            memset( buf, '\0', 64 );
 
+            if ( req.m_iType == 0xFADED ) {
+                //ExFreePool( Memory::pooledPML4Table );
+#undef ExFreePool
+                if ( Memory::pooledPML4Table )
+                    ExFreePool( Memory::pooledPML4Table );
                 return STATUS_SUCCESS;
             }
+
+            if ( Memory::GamePID )
+                Memory::UpdatePML4ECache( Memory::GamePID );
 
             switch ( req.m_iType ) {
             case REQUEST_READ:
@@ -125,12 +129,12 @@ NTSTATUS DriverEntry( CommsParse_t* comms ) {
             case REQUEST_GET_PID:
                 Memory::ReadProcessMemory( CLIENT, req.m_pAddress, buf, req.m_nSize * sizeof( char ), &read );
                 do {
-                    gamePID = Utils::GetPIDFromName( reinterpret_cast< char* >( buf ) );
+                    Memory::GamePID = Utils::GetPIDFromName( reinterpret_cast< char* >( buf ) );
                     Delaynie( 500 );
-                } while ( gamePID == 0 );
+                } while ( Memory::GamePID == 0 );
 
                 //Memory::CR3[ GAME ] = Memory::BruteForceDirectoryTableBase( gamePID );
-                Memory::UpdatePML4ECache( gamePID );
+                //Memory::UpdatePML4ECache( Memory::GamePID );
                 //Memory::UpdateGameCR3( gamePID );
 
                 /*DEBUG_PRINT( "brute: %llu\n", Memory::CR3[ GAME ] );
@@ -147,7 +151,7 @@ NTSTATUS DriverEntry( CommsParse_t* comms ) {
                 //Memory::CR3[ GAME ] = Memory::BruteForceDirectoryTableBase( gamePID );
                 Memory::ReadProcessMemory( CLIENT, req.m_pAddress, buf, req.m_nSize * sizeof( wchar_t ), &read );
 
-                base = GetModuleBase( gamePID, GAME, reinterpret_cast< wchar_t* >( buf ) );
+                base = GetModuleBase( Memory::GamePID, GAME, reinterpret_cast< wchar_t* >( buf ) );
                 Memory::WriteProcessMemory( CLIENT, req.m_pBuffer,
                     &base, 8, &read );
 

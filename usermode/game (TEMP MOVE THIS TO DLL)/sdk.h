@@ -82,8 +82,6 @@ namespace Game {
 			unityPlayer = Memory::GetModuleBase( xors( L"UnityPlayer.dll" ) );
 		}*/
 
-		Sleep( 2000 );
-
 		// Object name: BaseNetworkable_TypeInfo
 		// Type: BaseNetworkable_c
 		void* baseNetworkable{ Memory::Read< void* >( ADD_TO_ADDRESS( gameAssembly, 0x333CBD8 ) ) };
@@ -111,6 +109,7 @@ namespace Game {
 		while ( !staticFields ) {
 			std::this_thread::sleep_for( std::chrono::seconds( 2 ) );
 			staticFields = Memory::Read< void* >( ADD_TO_ADDRESS( baseNetworkable, 0xB8 ) );
+			printf( "sf fail\n" );
 		}
 
 		printf( "found sf\n" );
