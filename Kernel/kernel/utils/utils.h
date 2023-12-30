@@ -140,31 +140,61 @@ namespace Utils {
         }
     }
 
+    __forceinline bool IsSubstring( const char* mainString, const char* substring ) {
+        size_t mainLen = strlen( mainString );
+        size_t subLen = strlen( substring );
+
+        // If substring is longer than the main string, it cannot be a substring
+        if ( subLen > mainLen ) {
+            return false;
+        }
+
+        for ( int i = 0; i <= mainLen - subLen; ++i ) {
+            // Check if the substring matches the current portion of the main string
+            if ( strncmp( mainString + i, substring, subLen ) == 0 ) {
+                return true;  // Substring found
+            }
+        }
+
+        return false;  // Substring not found
+    }
+
+    __forceinline void ToLowerCase( char* str ) {
+        while ( *str ) {
+            *str = char( tolower( ( unsigned char ) *str ) );
+            str++;
+        }
+    }
+
 #define ImageFileName 0x5A8 // EPROCESS::ImageFileName
 #define ActiveThreads 0x5F0 // EPROCESS::ActiveThreads
 #define ThreadListHead 0x5E0 // EPROCESS::ThreadListHead
 #define ActiveProcessLinks 0x448 // EPROCESS::ActiveProcessLinks
 #define SectionBaseAddress 0x520 // EPROCESS::SectionBaseAddress
 
-    __forceinline PEPROCESS GetProcessFromName( const CHAR* processName ) {
+#define GetPEProcessMember( peprocess, offset, output ) RtlCopyMemory( ( PVOID ) ( &output ), ( PVOID ) ( ( uintptr_t ) peprocess + offset ), sizeof( output ) );
+
+    __forceinline PEPROCESS GetProcessFromName( CHAR* processName, PEPROCESS exclude = 0 ) {
         CHAR image_name[ 15 ];
         PEPROCESS sys_process = PsInitialSystemProcess;
         PEPROCESS cur_entry = sys_process;
         DWORD active_threads;
 
         do {
-            RtlCopyMemory( ( PVOID ) ( &image_name ), ( PVOID ) ( ( uintptr_t ) cur_entry + ImageFileName ), sizeof( image_name ) );
+            GetPEProcessMember( cur_entry, ImageFileName, image_name );
 
             //PrintString( image_name );
 
-            if ( strcmp( image_name, processName ) == 0 ) {
-                RtlCopyMemory( ( PVOID ) &active_threads, ( PVOID ) ( ( uintptr_t ) cur_entry + ActiveThreads ), sizeof( active_threads ) );
+            if ( exclude != cur_entry ) {
+                if ( strcmp( image_name, processName ) == 0 ) {
+                    GetPEProcessMember( cur_entry, ActiveThreads, active_threads );
 
-                if ( active_threads )
-                    return cur_entry;
+                    if ( active_threads )
+                        return cur_entry;
+                }
             }
 
-            PLIST_ENTRY list = ( PLIST_ENTRY ) ( ( uintptr_t ) ( cur_entry ) +ActiveProcessLinks );
+            PLIST_ENTRY list = ( PLIST_ENTRY ) ( ( uintptr_t ) ( cur_entry ) + ActiveProcessLinks );
             cur_entry = ( PEPROCESS ) ( ( uintptr_t ) list->Flink - ActiveProcessLinks );
 
         } while ( cur_entry != sys_process );
@@ -172,8 +202,8 @@ namespace Utils {
         return 0;
     }
 
-    __forceinline HANDLE GetPIDFromName( const CHAR* processName ) {
-        const auto proc{ GetProcessFromName( processName ) };
+    __forceinline HANDLE GetPIDFromName( CHAR* processName, PEPROCESS exclude = 0 ) {
+        const auto proc{ GetProcessFromName( processName, exclude ) };
         if ( !proc )
             return 0;
 
@@ -186,7 +216,7 @@ namespace Utils {
         DWORD active_threads;
 
         do {
-            RtlCopyMemory( ( PVOID ) &active_threads, ( PVOID ) ( ( uintptr_t ) cur_entry + ActiveThreads ), sizeof( active_threads ) );
+            GetPEProcessMember( cur_entry, ActiveThreads, active_threads );
 
             if ( active_threads ) {
                 if ( pid == PsGetProcessId( cur_entry ) )

@@ -89,6 +89,8 @@ NTSTATUS DriverEntry( CommsParse_t* comms ) {
     if ( !client )
         return STATUS_ABANDONED;
 
+    PEPROCESS ACProcess{ };
+
     Memory::CR3[ CLIENT ] = *( PULONG_PTR ) ( ( uintptr_t ) client + 0x28 ); //dirbase x64, 32bit is 0x18
     if ( Memory::CR3[ CLIENT ] == 0 ) {
         DWORD UserDirOffset = Memory::GetUserDirectoryTableBaseOffset( );
@@ -107,6 +109,10 @@ NTSTATUS DriverEntry( CommsParse_t* comms ) {
             memset( buf, '\0', 64 );
 
             if ( req.m_iType == 0xFADED ) {
+                // wait for process to close before unloading.
+                while ( Utils::LookupPEProcessFromID( Memory::GamePID ) ) ( Delaynie( 1000 ) );
+                Delaynie( 2000 );
+
                 //ExFreePool( Memory::pooledPML4Table );
 #undef ExFreePool
                 if ( Memory::pooledPML4Table )
@@ -129,7 +135,14 @@ NTSTATUS DriverEntry( CommsParse_t* comms ) {
             case REQUEST_GET_PID:
                 Memory::ReadProcessMemory( CLIENT, req.m_pAddress, buf, req.m_nSize * sizeof( char ), &read );
                 do {
-                    Memory::GamePID = Utils::GetPIDFromName( reinterpret_cast< char* >( buf ) );
+                    // fortnite's eac is fortniteclient... and so is the game. ImageFileName is the same
+                    ACProcess = Utils::GetProcessFromName( buf );
+
+                    if ( ACProcess && ACProcess != INVALID_HANDLE ) {
+                        ///DEBUG_PRINT( "found ACProcessID\n" );
+                        Memory::GamePID = Utils::GetPIDFromName( buf, ACProcess );
+                    }
+
                     Delaynie( 500 );
                 } while ( Memory::GamePID == 0 );
 
@@ -145,8 +158,14 @@ NTSTATUS DriverEntry( CommsParse_t* comms ) {
                     Memory::CR3[ GAME ] = *( PULONG_PTR ) ( ( uintptr_t ) Utils::LookupPEProcessFromID( gamePID ) + UserDirOffset );
                 }
 
-                DEBUG_PRINT( "basic: %llu\n", Memory::CR3[ GAME ] );
-                break;*/
+                DEBUG_PRINT( "basic: %llu\n", Memory::CR3[ GAME ] );*/
+                break;
+            case REQUEST_GET_PROCESS_BASE:
+                GetPEProcessMember( Utils::LookupPEProcessFromID( Memory::GamePID ), SectionBaseAddress, base );
+
+                Memory::WriteProcessMemory( CLIENT, req.m_pBuffer,
+                    &base, 8, &read );
+                break;
             case REQUEST_GET_MODULE_BASE:
                 //Memory::CR3[ GAME ] = Memory::BruteForceDirectoryTableBase( gamePID );
                 Memory::ReadProcessMemory( CLIENT, req.m_pAddress, buf, req.m_nSize * sizeof( wchar_t ), &read );

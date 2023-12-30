@@ -66,6 +66,8 @@ void __cdecl VisualCallback( Overlay::CDrawer* d ) {
 }
 
 void CloseApplication( ) {
+	printf( "Please close game.\n" );
+
 	Memory::UnloadDriver( );
 
 	//intel_driver::Unload( intel_driver::iqvw64e_device_handle );
@@ -110,7 +112,7 @@ int main( ) {
 	//intel_driver::Unload( intel_driver::iqvw64e_device_handle );
 
 	/* open game now */
-	Memory::WaitForGame( xors( "RustClient.exe" ) );
+	Memory::WaitForGame( xors( "FortniteClient" ) );
 
 	printf( "ready\n" );
 
@@ -123,7 +125,7 @@ int main( ) {
 	else
 		printf( "w chat\n" );
 
-	Overlay::CDrawer d{ Overlay::CreateOverlayWindow( ), FindWindowA( NULL, "Rust" ) };
+	Overlay::CDrawer d{ Overlay::CreateOverlayWindow( ), FindWindowA( NULL, "Fortnite" ) };
 
 	std::thread overlay{ Overlay::Main, &d };
 	overlay.detach( );

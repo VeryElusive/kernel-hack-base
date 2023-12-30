@@ -37,6 +37,18 @@ namespace Memory {
         while ( Context::CommunicationBuffer.m_iType != 0 ) { _ReadWriteBarrier( ); };
     }
 
+    inline bool GetGameBaseAddress( void* buffer ) {
+        while ( Context::CommunicationBuffer.m_iType != 0 ) { _ReadWriteBarrier( ); };
+
+        Context::CommunicationBuffer.m_iType = REQUEST_GET_PROCESS_BASE;
+        Context::CommunicationBuffer.m_pBuffer = buffer;
+        Context::CommunicationBuffer.m_nSize = 8;
+
+        while ( Context::CommunicationBuffer.m_iType != 0 ) { _ReadWriteBarrier( ); };
+
+        return Context::CommunicationBuffer.m_pBuffer;
+    }
+
     template <class T = void*>
     __forceinline T Read( void* address ) {
         T ret{ };
