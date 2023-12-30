@@ -54,15 +54,17 @@ void Initialise( ) {
 
 	printf( "exiting." );
 
+	Sleep( 1000 );
+
 	std::exit( 0 );
 }
 
 void __cdecl VisualCallback( Overlay::CDrawer* d ) {
 	Features::Visuals.Main( d );
 
-	//d->RoundedRectFilled( { 300,100 }, { 200,100 }, Color( 255, 90, 180 ), 5.f );
+	d->RoundedRectFilled( { 300,100 }, { 200,100 }, Color( 255, 90, 180 ), 5.f );
 
-	//d->RectFilled( { 0,100 }, { 200,100 }, Color( 100, 255, 255 ) );
+	d->RectFilled( { 0,100 }, { 200,100 }, Color( 100, 255, 255 ) );
 }
 
 void CloseApplication( ) {
@@ -115,8 +117,6 @@ int main( ) {
 	Memory::WaitForGame( xors( "FortniteClient" ) );
 
 	printf( "ready\n" );
-
-	//Sleep( 2000 );
 
 	//LoadCheatModule( Overlay::m_pVisualCallback );
 

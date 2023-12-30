@@ -110,8 +110,7 @@ NTSTATUS DriverEntry( CommsParse_t* comms ) {
 
             if ( req.m_iType == 0xFADED ) {
                 // wait for process to close before unloading.
-                while ( Utils::LookupPEProcessFromID( Memory::GamePID ) ) ( Delaynie( 1000 ) );
-                Delaynie( 2000 );
+                while ( Utils::GetProcessFromName( (char*)"FortniteClient" ) ) ( Delaynie( 1000 ) );
 
                 //ExFreePool( Memory::pooledPML4Table );
 #undef ExFreePool

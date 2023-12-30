@@ -9,21 +9,18 @@ void Overlay::Main( CDrawer* d ) {
     auto font{ d->CreateFontResource( "Arial", 25 ) };
 
     // CLayerResource
-    //auto layer = d->CreateLayer( );
+    auto layer = d->CreateLayer( );
 
     // text_resource
-    auto watermark = d->CreateText( font, "i hate fat people." );
-    watermark.Align( ETextAlign::right );
+    auto watermark = d->CreateText( font, "BungusWare. The worst hack of all time." );
+    watermark.Align( ETextAlign::center );
 
     while ( true ) {
-        if ( !Context::Close )
-            break;
-
         d->PumpMessages( );
         if ( m_pVisualCallback )
             m_pVisualCallback( d );
 
-        watermark.Draw( { 500,0 }, Color( 100, 255, 255 ) );
+        watermark.Draw( { 1920/2,0 }, Color( 100, 255, 255 ) );
 
         d->Display( );
     }

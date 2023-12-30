@@ -182,6 +182,7 @@ CDrawer::~CDrawer( ) noexcept {
 }
 
 void CDrawer::Display( ) {
+    //SetWindowPos( hwnd, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE );
     SetWindowPos( gameHWND, hwnd, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE );
 
     m_pDeviceContext->EndDraw( );
